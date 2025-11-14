@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SistemaPerito - Reportes y Estadísticas</title>
+    
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <style>
+        /* Animaciones */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        /* Estilos para los gráficos */
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        
+        /* Efecto hover en tarjetas */
+        .stat-card {
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Navegación Principal -->
+    <nav class="bg-blue-900 text-white shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-balance-scale text-3xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">SistemaPerito</h1>
+                        <p class="text-sm text-blue-200">Gestión de Asignaciones</p>
+                    </div>
+                </div>
+                
+                <!-- Menú de navegación -->
+                <div class="flex space-x-1">
+                    <a href="/" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-home mr-2"></i>Dashboard
+                    </a>
+                    <a href="/nuevo" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-plus mr-2"></i>Nueva Asignación
+                    </a>
+                    <a href="/buscar" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-search mr-2"></i>Buscar
+                    </a>
+                    <a href="/calendario" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-calendar mr-2"></i>Calendario
+                    </a>
+                    <a href="/peritos" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-users mr-2"></i>Peritos
+                    </a>
+                    <a href="/reportes" class="px-4 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-chart-bar mr-2"></i>Reportes
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <div class="container mx-auto px-4 py-8">
+        
+        <!-- Título de la página -->
+        <div class="mb-8 fade-in">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-chart-line text-green-600 mr-3"></i>Reportes y Estadísticas
+            </h2>
+            <p class="text-gray-600">Análisis y métricas del sistema de asignaciones</p>
+        </div>
+
+        <!-- Filtros de Período -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8 fade-in">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-calendar-check text-green-600 mr-2"></i>Fecha Desde
+                    </label>
+                    <input type="date" 
+                           id="fechaDesde" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-calendar-times text-red-600 mr-2"></i>Fecha Hasta
+                    </label>
+                    <input type="date" 
+                           id="fechaHasta" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition">
+                </div>
+
+                <div class="flex items-end space-x-3">
+                    <button onclick="cargarEstadisticas()" 
+                            class="flex-1 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-sync-alt mr-2"></i>Actualizar
+                    </button>
+                    <button onclick="exportarReporte()" 
+                            class="flex-1 px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
+                        <i class="fas fa-file-excel mr-2"></i>Exportar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estadísticas Generales -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500 fade-in">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm font-semibold uppercase">Total Asignaciones</p>
+                        <p class="text-4xl font-bold text-gray-800 mt-2" id="totalAsignaciones">0</p>
+                    </div>
+                    <div class="bg-blue-100 p-3 rounded-lg">
+                        <i class="fas fa-clipboard-list text-2xl text-blue-600"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-4">
+                    <i class="fas fa-chart-line mr-1"></i>En el período seleccionado
+                </p>
+            </div>
+
+            <div class="stat-card bg-white rounded-xl shadow-md p-6 border-l-4 border-yellow-500 fade-in" style="animation-delay: 0.1s">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm font-semibold uppercase">Pendientes</p>
+                        <p class="text-4xl font-bold text-yellow-600 mt-2" id="totalPendientes">0</p>
+                    </div>
+                    <div class="bg-yellow-100 p-3 rounded-lg">
+                        <i class="fas fa-clock text-2xl text-yellow-600"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-4" id="porcentajePendientes">
+                    <i class="fas fa-percentage mr-1"></i>0% del total
+                </p>
+            </div>
+
+            <div class="stat-card bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500 fade-in" style="animation-delay: 0.2s">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm font-semibold uppercase">En Proceso</p>
+                        <p class="text-4xl font-bold text-orange-600 mt-2" id="totalEnProceso">0</p>
+                    </div>
+                    <div class="bg-orange-100 p-3 rounded-lg">
+                        <i class="fas fa-spinner text-2xl text-orange-600"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-4" id="porcentajeEnProceso">
+                    <i class="fas fa-percentage mr-1"></i>0% del total
+                </p>
+            </div>
+
+            <div class="stat-card bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500 fade-in" style="animation-delay: 0.3s">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm font-semibold uppercase">Completados</p>
+                        <p class="text-4xl font-bold text-green-600 mt-2" id="totalCompletados">0</p>
+                    </div>
+                    <div class="bg-green-100 p-3 rounded-lg">
+                        <i class="fas fa-check-circle text-2xl text-green-600"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-4" id="porcentajeCompletados">
+                    <i class="fas fa-percentage mr-1"></i>0% del total
+                </p>
+            </div>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            
+            <!-- Gráfico de Estados -->
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in" style="animation-delay: 0.4s">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-chart-pie text-blue-600 mr-2"></i>Distribución por Estado
+                    </h3>
+                    <span class="text-sm text-gray-500">
+                        <i class="fas fa-info-circle mr-1"></i>Vista general
+                    </span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartEstados"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico de Tipos de Perito -->
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in" style="animation-delay: 0.5s">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-chart-pie text-purple-600 mr-2"></i>Distribución por Tipo de Perito
+                    </h3>
+                    <span class="text-sm text-gray-500">
+                        <i class="fas fa-users mr-1"></i>Por especialidad
+                    </span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartTipos"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico de Asignaciones por Mes -->
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in lg:col-span-2" style="animation-delay: 0.6s">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-chart-line text-green-600 mr-2"></i>Tendencia de Asignaciones (Últimos 6 Meses)
+                    </h3>
+                    <span class="text-sm text-gray-500">
+                        <i class="fas fa-calendar-alt mr-1"></i>Vista temporal
+                    </span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartMeses"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top 5 Peritos Más Asignados -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-8 fade-in" style="animation-delay: 0.7s">
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
+                <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-trophy mr-3"></i>Top 5 Peritos con Más Asignaciones
+                </h3>
+            </div>
+
+            <div class="p-6">
+                <div id="topPeritos" class="space-y-4">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumen por Dependencia -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden fade-in" style="animation-delay: 0.8s">
+            <div class="bg-gradient-to-r from-purple-700 to-purple-600 px-6 py-4">
+                <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-building mr-3"></i>Asignaciones por Dependencia
+                </h3>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Dependencia</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Asignaciones</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Pendientes</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">En Proceso</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Completados</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">% Completado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaDependencias" class="divide-y divide-gray-200">
+                        <!-- Se llenará dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white mt-12 py-6">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm">
+                <i class="fas fa-balance-scale mr-2"></i>SistemaPerito © 2025 - Sistema de Gestión de Asignaciones
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Variables globales para los gráficos
+        let chartEstados, chartTipos, chartMeses;
+
+        /**
+         * Inicialización al cargar la página
+         */
+        document.addEventListener('DOMContentLoaded', function() {
+            // Establecer fechas por defecto (últimos 6 meses)
+            const hoy = new Date();
+            const hace6Meses = new Date();
+            hace6Meses.setMonth(hace6Meses.getMonth() - 6);
+            
+            document.getElementById('fechaDesde').value = hace6Meses.toISOString().split('T')[0];
+            document.getElementById('fechaHasta').value = hoy.toISOString().split('T')[0];
+            
+            // Cargar estadísticas
+            cargarEstadisticas();
+        });
+
+        /**
+         * Cargar todas las estadísticas
+         */
+        function cargarEstadisticas() {
+            const fechaDesde = document.getElementById('fechaDesde').value;
+            const fechaHasta = document.getElementById('fechaHasta').value;
+            
+            // Construir parámetros
+            const params = new URLSearchParams();
+            if (fechaDesde) params.append('fecha_desde', fechaDesde);
+            if (fechaHasta) params.append('fecha_hasta', fechaHasta);
+            
+            // Obtener estadísticas del servidor
+            fetch(`/api/estadisticas?${params.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    actualizarEstadisticasGenerales(data);
+                    crearGraficoEstados(data.por_estado);
+                    crearGraficoTipos(data.por_tipo);
+                    crearGraficoMeses(data.por_mes);
+                    mostrarTopPeritos(data.top_peritos);
+                    cargarDatosDependencias();
+                })
+                .catch(error => {
+                    console.error('Error al cargar estadísticas:', error);
+                    alert('Error al cargar las estadísticas');
+                });
+        }
+
+        /**
+         * Actualizar estadísticas generales en las tarjetas
+         */
+        function actualizarEstadisticasGenerales(data) {
+            const porEstado = data.por_estado || {};
+            
+            const total = Object.values(porEstado).reduce((sum, val) => sum + val, 0);
+            const pendientes = porEstado['Pendiente'] || 0;
+            const enProceso = porEstado['En Proceso'] || 0;
+            const completados = porEstado['Completado'] || 0;
+            
+            document.getElementById('totalAsignaciones').textContent = total;
+            document.getElementById('totalPendientes').textContent = pendientes;
+            document.getElementById('totalEnProceso').textContent = enProceso;
+            document.getElementById('totalCompletados').textContent = completados;
+            
+            // Calcular porcentajes
+            const porcentajePendientes = total > 0 ? ((pendientes / total) * 100).toFixed(1) : 0;
+            const porcentajeEnProceso = total > 0 ? ((enProceso / total) * 100).toFixed(1) : 0;
+            const porcentajeCompletados = total > 0 ? ((completados / total) * 100).toFixed(1) : 0;
+            
+            document.getElementById('porcentajePendientes').innerHTML = 
+                `<i class="fas fa-percentage mr-1"></i>${porcentajePendientes}% del total`;
+            document.getElementById('porcentajeEnProceso').innerHTML = 
+                `<i class="fas fa-percentage mr-1"></i>${porcentajeEnProceso}% del total`;
+            document.getElementById('porcentajeCompletados').innerHTML = 
+                `<i class="fas fa-percentage mr-1"></i>${porcentajeCompletados}% del total`;
+        }
+
+        /**
+         * Crear gráfico de distribución por estado
+         */
+        function crearGraficoEstados(porEstado) {
+            const ctx = document.getElementById('chartEstados').getContext('2d');
+            
+            // Destruir gráfico anterior si existe
+            if (chartEstados) {
+                chartEstados.destroy();
+            }
+            
+            const labels = Object.keys(porEstado);
+            const valores = Object.values(porEstado);
+            
+            chartEstados = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: valores,
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',  // Azul - Pendiente
+                            'rgba(251, 146, 60, 0.8)',  // Naranja - En Proceso
+                            'rgba(34, 197, 94, 0.8)',   // Verde - Completado
+                            'rgba(239, 68, 68, 0.8)'    // Rojo - Cancelado
+                        ],
+                        borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(251, 146, 60, 1)',
+                            'rgba(34, 197, 94, 1)',
+                            'rgba(239, 68, 68, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Crear gráfico de distribución por tipo de perito
+         */
+        function crearGraficoTipos(porTipo) {
+            const ctx = document.getElementById('chartTipos').getContext('2d');
+            
+            // Destruir gráfico anterior si existe
+            if (chartTipos) {
+                chartTipos.destroy();
+            }
+            
+            const labels = Object.keys(porTipo);
+            const valores = Object.values(porTipo);
+            
+            chartTipos = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: valores,
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',   // Azul - Informático
+                            'rgba(147, 51, 234, 0.8)',   // Púrpura - Acústico
+                            'rgba(34, 197, 94, 0.8)',    // Verde - Antropólogo
+                            'rgba(245, 158, 11, 0.8)'    // Amarillo - Contable
+                        ],
+                        borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(147, 51, 234, 1)',
+                            'rgba(34, 197, 94, 1)',
+                            'rgba(245, 158, 11, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Crear gráfico de tendencia por meses
+         */
+        function crearGraficoMeses(porMes) {
+            const ctx = document.getElementById('chartMeses').getContext('2d');
+            
+            // Destruir gráfico anterior si existe
+            if (chartMeses) {
+                chartMeses.destroy();
+            }
+            
+            const labels = porMes.map(item => {
+                const [anio, mes] = item.mes.split('-');
+                const nombresMeses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
+                                     'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                return `${nombresMeses[parseInt(mes) - 1]} ${anio}`;
+            });
+            
+            const valores = porMes.map(item => item.total);
+            
+            chartMeses = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Asignaciones por Mes',
+                        data: valores,
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 13
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Mostrar top 5 peritos con más asignaciones
+         */
+        function mostrarTopPeritos(topPeritos) {
+            const container = document.getElementById('topPeritos');
+            
+            if (!topPeritos || topPeritos.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fas fa-user-slash text-4xl text-gray-300 mb-3"></i>
+                        <p class="text-gray-500">No hay datos disponibles</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Encontrar el máximo para la barra de progreso
+            const maxTotal = Math.max(...topPeritos.map(p => p.total));
+            
+            let html = '';
+            topPeritos.forEach((perito, index) => {
+                const porcentaje = (perito.total / maxTotal) * 100;
+                const colores = [
+                    'bg-yellow-500',
+                    'bg-gray-400',
+                    'bg-orange-500',
+                    'bg-blue-500',
+                    'bg-purple-500'
+                ];
+                
+                html += `
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full ${colores[index]} flex items-center justify-center text-white font-bold text-xl">
+                            ${index + 1}
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-bold text-gray-800">${perito.nombre}</h4>
+                                <span class="text-2xl font-bold text-blue-600">${perito.total}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="${colores[index]} h-3 rounded-full transition-all duration-500" 
+                                     style="width: ${porcentaje}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        /**
+         * Cargar datos de dependencias
+         */
+        function cargarDatosDependencias() {
+            const fechaDesde = document.getElementById('fechaDesde').value;
+            const fechaHasta = document.getElementById('fechaHasta').value;
+            
+            const params = new URLSearchParams();
+            if (fechaDesde) params.append('fecha_desde', fechaDesde);
+            if (fechaHasta) params.append('fecha_hasta', fechaHasta);
+            
+            fetch(`/api/asignaciones?${params.toString()}`)
+                .then(response => response.json())
+                .then(asignaciones => {
+                    // Agrupar por dependencia
+                    const porDependencia = {};
+                    
+                    asignaciones.forEach(a => {
+                        const dep = a.dependencia || 'Sin dependencia';
+                        if (!porDependencia[dep]) {
+                            porDependencia[dep] = {
+                                total: 0,
+                                pendientes: 0,
+                                enProceso: 0,
+                                completados: 0
+                            };
+                        }
+                        
+                        porDependencia[dep].total++;
+                        if (a.estado === 'Pendiente') porDependencia[dep].pendientes++;
+                        if (a.estado === 'En Proceso') porDependencia[dep].enProceso++;
+                        if (a.estado === 'Completado') porDependencia[dep].completados++;
+                    });
+                    
+                    // Mostrar en tabla
+                    mostrarTablaDependencias(porDependencia);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        /**
+         * Mostrar tabla de dependencias
+         */
+        function mostrarTablaDependencias(porDependencia) {
+            const tbody = document.getElementById('tablaDependencias');
+            
+            if (Object.keys(porDependencia).length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            <i class="fas fa-inbox text-4xl text-gray-300 mb-3"></i>
+                            <p>No hay datos disponibles</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let html = '';
+            
+            // Ordenar por total descendente
+            const dependenciasOrdenadas = Object.entries(porDependencia)
+                .sort((a, b) => b[1].total - a[1].total);
+            
+            dependenciasOrdenadas.forEach(([dependencia, stats]) => {
+                const porcentajeCompletado = stats.total > 0 
+                    ? ((stats.completados / stats.total) * 100).toFixed(1) 
+                    : 0;
+                
+                html += `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 text-sm font-semibold text-gray-900">
+                            <i class="fas fa-building text-blue-500 mr-2"></i>${dependencia}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="text-lg font-bold text-blue-600">${stats.total}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="text-lg font-bold text-yellow-600">${stats.pendientes}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="text-lg font-bold text-orange-600">${stats.enProceso}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="text-lg font-bold text-green-600">${stats.completados}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="flex-1 bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full" 
+                                         style="width: ${porcentajeCompletado}%"></div>
+                                </div>
+                                <span class="text-sm font-bold text-gray-700 w-12">${porcentajeCompletado}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+        }
+
+        /**
+         * Exportar reporte a Excel
+         */
+        function exportarReporte() {
+            const fechaDesde = document.getElementById('fechaDesde').value;
+            const fechaHasta = document.getElementById('fechaHasta').value;
+            
+            const params = new URLSearchParams();
+            if (fechaDesde) params.append('fecha_desde', fechaDesde);
+            if (fechaHasta) params.append('fecha_hasta', fechaHasta);
+            
+            window.open(`/api/exportar/excel?${params.toString()}`, '_blank');
+        }
+    </script>
+</body>
+</html>

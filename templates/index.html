@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SistemaPerito - Dashboard</title>
+    
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Animaciones personalizadas */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        /* Estilos para las tarjetas de estadísticas */
+        .stat-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Navegación Principal -->
+    <nav class="bg-blue-900 text-white shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-balance-scale text-3xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">SistemaPerito</h1>
+                        <p class="text-sm text-blue-200">Gestión de Asignaciones</p>
+                    </div>
+                </div>
+                
+                <!-- Menú de navegación -->
+                <div class="flex space-x-1">
+                    <a href="/" class="px-4 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-home mr-2"></i>Dashboard
+                    </a>
+                    <a href="/nuevo" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-plus mr-2"></i>Nueva Asignación
+                    </a>
+                    <a href="/buscar" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-search mr-2"></i>Buscar
+                    </a>
+                    <a href="/calendario" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-calendar mr-2"></i>Calendario
+                    </a>
+                    <a href="/peritos" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-users mr-2"></i>Peritos
+                    </a>
+                    <a href="/reportes" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-chart-bar mr-2"></i>Reportes
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <div class="container mx-auto px-4 py-8">
+        
+        <!-- Título de la página -->
+        <div class="mb-8 fade-in">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-tachometer-alt text-blue-900 mr-3"></i>Dashboard Principal
+            </h2>
+            <p class="text-gray-600">Vista general del sistema de gestión de peritos</p>
+        </div>
+
+        <!-- Tarjetas de Estadísticas -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            
+            <!-- Total de Asignaciones -->
+            <div class="stat-card bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500 fade-in">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm font-semibold uppercase">Total Asignaciones</p>
+                        <p class="text-4xl font-bold text-gray-800 mt-2">{{ total }}</p>
+                    </div>
+                    <div class="bg-blue-100 p-3 rounded-lg">
+                        <i class="fas fa-clipboard-list text-2xl text-blue-600"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-4">
+                    <i class="fas fa-info-circle mr-1"></i>Todas las asignaciones registradas
+                </p>
+            </div>
+
+            <!-- Pendientes -->
+            <div class="stat-card bg-white rounded-xl shadow-md p-6 border-l-4 border-yellow-500 fade-in" style="animation-delay: 0.1s">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm font-semibold uppercase">Pendientes</p>
+                        <p class="text-4xl font-bold text-yellow-600 mt-2">{{ pendientes }}</p>
+                    </div>
+                    <div class="bg-yellow-100 p-3 rounded-lg">
+                        <i class="fas fa-clock text-2xl text-yellow-600"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-4">
+                    <i class="fas fa-hourglass-start mr-1"></i>En espera de inicio
+                </p>
+            </div>
+
+            <!-- En Proceso -->
+            <div class="stat-card bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500 fade-in" style="animation-delay: 0.2s">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm font-semibold uppercase">En Proceso</p>
+                        <p class="text-4xl font-bold text-orange-600 mt-2">{{ en_proceso }}</p>
+                    </div>
+                    <div class="bg-orange-100 p-3 rounded-lg">
+                        <i class="fas fa-spinner text-2xl text-orange-600"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-4">
+                    <i class="fas fa-tasks mr-1"></i>Actualmente en ejecución
+                </p>
+            </div>
+
+            <!-- Completados -->
+            <div class="stat-card bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500 fade-in" style="animation-delay: 0.3s">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm font-semibold uppercase">Completados</p>
+                        <p class="text-4xl font-bold text-green-600 mt-2">{{ completados }}</p>
+                    </div>
+                    <div class="bg-green-100 p-3 rounded-lg">
+                        <i class="fas fa-check-circle text-2xl text-green-600"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-4">
+                    <i class="fas fa-flag-checkered mr-1"></i>Trabajos finalizados
+                </p>
+            </div>
+        </div>
+
+        <!-- Acciones Rápidas -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <a href="/nuevo" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-lg p-6 hover:shadow-xl transition transform hover:scale-105">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xl font-bold mb-2">Nueva Asignación</h3>
+                        <p class="text-blue-100 text-sm">Registrar nueva asignación de perito</p>
+                    </div>
+                    <i class="fas fa-plus-circle text-5xl text-blue-200"></i>
+                </div>
+            </a>
+
+            <a href="/buscar" class="bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl shadow-lg p-6 hover:shadow-xl transition transform hover:scale-105">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xl font-bold mb-2">Búsqueda Avanzada</h3>
+                        <p class="text-purple-100 text-sm">Encontrar asignaciones específicas</p>
+                    </div>
+                    <i class="fas fa-search text-5xl text-purple-200"></i>
+                </div>
+            </a>
+
+            <a href="/reportes" class="bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl shadow-lg p-6 hover:shadow-xl transition transform hover:scale-105">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xl font-bold mb-2">Ver Reportes</h3>
+                        <p class="text-green-100 text-sm">Estadísticas y gráficos</p>
+                    </div>
+                    <i class="fas fa-chart-line text-5xl text-green-200"></i>
+                </div>
+            </a>
+        </div>
+
+        <!-- Tabla de Asignaciones Recientes -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden fade-in" style="animation-delay: 0.4s">
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
+                <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-history mr-3"></i>Asignaciones Recientes
+                </h3>
+                <p class="text-blue-200 text-sm mt-1">Últimas 10 asignaciones registradas</p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hoja Envío</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Expediente</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Perito</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Fecha Inicio</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Fecha Fin</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Estado</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Lugar</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% if asignaciones %}
+                            {% for asignacion in asignaciones %}
+                            <tr class="hover:bg-gray-50 transition">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    #{{ asignacion.id }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                    {{ asignacion.hoja_envio or '-' }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                    {{ asignacion.expediente or '-' }}
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-900">
+                                    <div class="flex items-center">
+                                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                                            <i class="fas fa-user text-blue-600 text-xs"></i>
+                                        </div>
+                                        <span class="font-medium">{{ asignacion.perito[:30] }}...</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                    <i class="far fa-calendar text-blue-500 mr-1"></i>
+                                    {{ asignacion.fecha_inicio }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                    <i class="far fa-calendar text-red-500 mr-1"></i>
+                                    {{ asignacion.fecha_fin }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    {% if asignacion.estado == 'Completado' %}
+                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                            <i class="fas fa-check-circle mr-1"></i>Completado
+                                        </span>
+                                    {% elif asignacion.estado == 'En Proceso' %}
+                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                            <i class="fas fa-spinner mr-1"></i>En Proceso
+                                        </span>
+                                    {% elif asignacion.estado == 'Pendiente' %}
+                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                            <i class="fas fa-clock mr-1"></i>Pendiente
+                                        </span>
+                                    {% else %}
+                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                            {{ asignacion.estado }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-600">
+                                    <div class="max-w-xs truncate" title="{{ asignacion.lugar }}">
+                                        <i class="fas fa-map-marker-alt text-red-500 mr-1"></i>
+                                        {{ asignacion.lugar[:30] }}...
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <button onclick="verDetalle({{ asignacion.id }})"
+                                            class="text-blue-600 hover:text-blue-800 mr-3" 
+                                            title="Ver detalle">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button onclick="editarAsignacion({{ asignacion.id }})" 
+                                            class="text-green-600 hover:text-green-800" 
+                                            title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="9" class="px-6 py-8 text-center text-gray-500">
+                                    <i class="fas fa-inbox text-4xl text-gray-300 mb-3"></i>
+                                    <p class="text-lg">No hay asignaciones registradas</p>
+                                    <a href="/nuevo" class="text-blue-600 hover:text-blue-800 mt-2 inline-block">
+                                        <i class="fas fa-plus mr-1"></i>Crear primera asignación
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Ver Detalle -->
+    <div id="modalDetalle" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-white">
+                    <i class="fas fa-info-circle mr-2"></i>Detalle de Asignación
+                </h3>
+                <button onclick="cerrarModal()" class="text-white hover:text-gray-200">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div id="contenidoDetalle" class="p-6">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white mt-12 py-6">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm">
+                <i class="fas fa-balance-scale mr-2"></i>SistemaPerito © 2025 - Sistema de Gestión de Asignaciones
+            </p>
+            <!--<p class="text-xs text-gray-400 mt-2">
+                Desarrollado con <i class="fas fa-heart text-red-500 mx-1"></i> para optimizar la gestión de peritos
+            </p>-->
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        /**
+         * Función para ver el detalle completo de una asignación
+         * @param {number} id - ID de la asignación
+         */
+        function verDetalle(id) {
+            // Mostrar modal
+            document.getElementById('modalDetalle').classList.remove('hidden');
+            
+            // Cargar datos de la asignación
+            fetch(`/api/asignacion/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Renderizar información detallada
+                    const contenido = `
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="col-span-2 bg-blue-50 p-4 rounded-lg mb-4">
+                                <h4 class="text-lg font-bold text-blue-900 mb-2">
+                                    <i class="fas fa-file-alt mr-2"></i>Información General
+                                </h4>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Hoja de Envío:</label>
+                                <p class="text-gray-800">${data.hoja_envio || '-'}</p>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Expediente:</label>
+                                <p class="text-gray-800">${data.expediente || '-'}</p>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Dependencia:</label>
+                                <p class="text-gray-800">${data.dependencia || '-'}</p>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Tipo de Perito:</label>
+                                <p class="text-gray-800">${data.tipo_perito || '-'}</p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Carpeta Fiscal:</label>
+                                <p class="text-gray-800">${data.carpeta_fiscal || '-'}</p>
+                            </div>
+                            
+                            <div class="col-span-2 bg-green-50 p-4 rounded-lg my-4">
+                                <h4 class="text-lg font-bold text-green-900 mb-2">
+                                    <i class="fas fa-user-tie mr-2"></i>Perito Asignado
+                                </h4>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Nombre del Perito:</label>
+                                <p class="text-gray-800 text-lg font-semibold">${data.perito_nombre || data.perito_asignado}</p>
+                            </div>
+                            
+                            <div class="col-span-2 bg-purple-50 p-4 rounded-lg my-4">
+                                <h4 class="text-lg font-bold text-purple-900 mb-2">
+                                    <i class="fas fa-calendar-alt mr-2"></i>Fechas y Ubicación
+                                </h4>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Fecha Inicio:</label>
+                                <p class="text-gray-800">
+                                    <i class="far fa-calendar-check text-green-600 mr-1"></i>
+                                    ${data.fecha_inicio}
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Fecha Fin:</label>
+                                <p class="text-gray-800">
+                                    <i class="far fa-calendar-times text-red-600 mr-1"></i>
+                                    ${data.fecha_fin}
+                                </p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Lugar:</label>
+                                <p class="text-gray-800">
+                                    <i class="fas fa-map-marker-alt text-red-500 mr-1"></i>
+                                    ${data.lugar || '-'}
+                                </p>
+                            </div>
+                            
+                            <div class="col-span-2 bg-yellow-50 p-4 rounded-lg my-4">
+                                <h4 class="text-lg font-bold text-yellow-900 mb-2">
+                                    <i class="fas fa-file-signature mr-2"></i>Documentos Oficiales
+                                </h4>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Designación:</label>
+                                <p class="text-gray-800">${data.desginacion || '-'}</p>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Oficio Desplazamiento:</label>
+                                <p class="text-gray-800">${data.oficio_desplazamiento || '-'}</p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Observaciones:</label>
+                                <p class="text-gray-800 bg-gray-50 p-3 rounded-lg">${data.observaciones || 'Sin observaciones'}</p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Estado Actual:</label>
+                                <p class="text-gray-800">
+                                    ${getEstadoBadge(data.estado)}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6 flex justify-end space-x-3">
+                            <button onclick="editarAsignacion(${data.id})" 
+                                    class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                                <i class="fas fa-edit mr-2"></i>Editar
+                            </button>
+                            <button onclick="cerrarModal()" 
+                                    class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                                <i class="fas fa-times mr-2"></i>Cerrar
+                            </button>
+                        </div>
+                    `;
+                    
+                    document.getElementById('contenidoDetalle').innerHTML = contenido;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al cargar el detalle de la asignación');
+                });
+        }
+
+        /**
+         * Función auxiliar para generar badge de estado
+         */
+        function getEstadoBadge(estado) {
+            const badges = {
+                'Completado': '<span class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check-circle mr-1"></i>Completado</span>',
+                'En Proceso': '<span class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-yellow-100 text-yellow-800"><i class="fas fa-spinner mr-1"></i>En Proceso</span>',
+                'Pendiente': '<span class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-clock mr-1"></i>Pendiente</span>',
+                'Cancelado': '<span class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-red-100 text-red-800"><i class="fas fa-times-circle mr-1"></i>Cancelado</span>'
+            };
+            return badges[estado] || estado;
+        }
+
+        /**
+         * Cerrar modal de detalle
+         */
+        function cerrarModal() {
+            document.getElementById('modalDetalle').classList.add('hidden');
+        }
+
+        /**
+         * Función para editar asignación (redirige a página de edición)
+         */
+        function editarAsignacion(id) {
+            // Por ahora redirigimos a la página de nueva asignación con el ID
+            // En una versión futura, se puede crear una página específica de edición
+            alert('Función de edición en desarrollo. ID: ' + id);
+        }
+
+        // Cerrar modal al hacer clic fuera de él
+        document.getElementById('modalDetalle').addEventListener('click', function(e) {
+            if (e.target === this) {
+                cerrarModal();
+            }
+        });
+    </script>
+</body>
+</html>

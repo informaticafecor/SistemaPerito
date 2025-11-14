@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SistemaPerito - Gestión de Peritos</title>
+    
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Animaciones */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        /* Hover en tarjetas */
+        .perito-card {
+            transition: all 0.3s ease;
+        }
+        
+        .perito-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Navegación Principal -->
+    <nav class="bg-blue-900 text-white shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-balance-scale text-3xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">SistemaPerito</h1>
+                        <p class="text-sm text-blue-200">Gestión de Asignaciones</p>
+                    </div>
+                </div>
+                
+                <!-- Menú de navegación -->
+                <div class="flex space-x-1">
+                    <a href="/" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-home mr-2"></i>Dashboard
+                    </a>
+                    <a href="/nuevo" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-plus mr-2"></i>Nueva Asignación
+                    </a>
+                    <a href="/buscar" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-search mr-2"></i>Buscar
+                    </a>
+                    <a href="/calendario" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-calendar mr-2"></i>Calendario
+                    </a>
+                    <a href="/peritos" class="px-4 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-users mr-2"></i>Peritos
+                    </a>
+                    <a href="/reportes" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-chart-bar mr-2"></i>Reportes
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <div class="container mx-auto px-4 py-8">
+        
+        <!-- Título de la página -->
+        <div class="mb-8 fade-in">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-user-tie text-green-600 mr-3"></i>Gestión de Peritos
+            </h2>
+            <p class="text-gray-600">Administración del personal de peritos del sistema</p>
+        </div>
+
+        <!-- Estadísticas Generales -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500 fade-in">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm font-semibold uppercase">Total Peritos</p>
+                        <p class="text-4xl font-bold text-gray-800 mt-2" id="totalPeritos">{{ peritos|length }}</p>
+                    </div>
+                    <div class="bg-blue-100 p-3 rounded-lg">
+                        <i class="fas fa-users text-2xl text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-600 fade-in" style="animation-delay: 0.1s">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm font-semibold uppercase">Informáticos</p>
+                        <p class="text-4xl font-bold text-blue-600 mt-2" id="totalInformaticos">0</p>
+                    </div>
+                    <div class="bg-blue-100 p-3 rounded-lg">
+                        <i class="fas fa-laptop-code text-2xl text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500 fade-in" style="animation-delay: 0.2s">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm font-semibold uppercase">Acústicos</p>
+                        <p class="text-4xl font-bold text-purple-600 mt-2" id="totalAcusticos">0</p>
+                    </div>
+                    <div class="bg-purple-100 p-3 rounded-lg">
+                        <i class="fas fa-microphone text-2xl text-purple-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500 fade-in" style="animation-delay: 0.3s">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm font-semibold uppercase">Otros</p>
+                        <p class="text-4xl font-bold text-green-600 mt-2" id="totalOtros">0</p>
+                    </div>
+                    <div class="bg-green-100 p-3 rounded-lg">
+                        <i class="fas fa-user-graduate text-2xl text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros y Acciones -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8 fade-in">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+                <div class="flex-1 w-full md:w-auto">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-filter text-blue-600 mr-2"></i>Filtrar por Tipo
+                    </label>
+                    <select id="filtroTipo" 
+                            onchange="filtrarPeritos()"
+                            class="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition">
+                        <option value="">Todos los tipos</option>
+                        <option value="Informático">Informático</option>
+                        <option value="Acústico">Acústico</option>
+                        <option value="Antropólogo">Antropólogo</option>
+                        <option value="Contable">Contable</option>
+                    </select>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button onclick="toggleVista()" 
+                            id="btnVista"
+                            class="px-6 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition">
+                        <i class="fas fa-th-list mr-2"></i>Vista Tabla
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vista de Tarjetas (Por defecto) -->
+        <div id="vistaCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {% for perito in peritos %}
+            <div class="perito-card bg-white rounded-xl shadow-lg overflow-hidden fade-in perito-item" 
+                 data-tipo="{{ perito.tipo }}"
+                 style="animation-delay: {{ loop.index * 0.05 }}s">
+                
+                <!-- Header con color según tipo -->
+                <div class="bg-gradient-to-r 
+                    {% if perito.tipo == 'Informático' %}from-blue-600 to-blue-500
+                    {% elif perito.tipo == 'Acústico' %}from-purple-600 to-purple-500
+                    {% elif perito.tipo == 'Antropólogo' %}from-green-600 to-green-500
+                    {% else %}from-yellow-600 to-yellow-500{% endif %} 
+                    px-6 py-4">
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-2xl 
+                                    {% if perito.tipo == 'Informático' %}text-blue-600
+                                    {% elif perito.tipo == 'Acústico' %}text-purple-600
+                                    {% elif perito.tipo == 'Antropólogo' %}text-green-600
+                                    {% else %}text-yellow-600{% endif %}"></i>
+                            </div>
+                            <div>
+                                <p class="text-white text-xs font-semibold uppercase">{{ perito.tipo }}</p>
+                                <p class="text-white text-sm">
+                                    {% if perito.estado == 'Activo' %}
+                                        <i class="fas fa-circle text-green-300 mr-1"></i>Activo
+                                    {% else %}
+                                        <i class="fas fa-circle text-red-300 mr-1"></i>Inactivo
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="text-white text-2xl font-bold">
+                            #{{ perito.id }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cuerpo de la tarjeta -->
+                <div class="p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 truncate" title="{{ perito.nombre }}">
+                        {{ perito.nombre }}
+                    </h3>
+
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600 font-semibold">
+                                <i class="fas fa-clipboard-list text-blue-500 mr-2"></i>Total Asignaciones:
+                            </span>
+                            <span class="text-lg font-bold text-blue-600">{{ perito.total_asignaciones }}</span>
+                        </div>
+
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600 font-semibold">
+                                <i class="fas fa-calendar-plus text-green-500 mr-2"></i>Registrado:
+                            </span>
+                            <span class="text-sm text-gray-700">{{ perito.fecha_creacion or '2025' }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Acciones -->
+                    <div class="mt-6 flex space-x-2">
+                        <button onclick="verHistorial({{ perito.id }}, '{{ perito.nombre }}')" 
+                                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold">
+                            <i class="fas fa-history mr-2"></i>Historial
+                        </button>
+                        <button onclick="verCalendario({{ perito.id }}, '{{ perito.nombre }}')" 
+                                class="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-semibold">
+                            <i class="fas fa-calendar-alt mr-2"></i>Calendario
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Vista de Tabla (Oculta por defecto) -->
+        <div id="vistaTabla" class="hidden bg-white rounded-xl shadow-lg overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
+                <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-table mr-3"></i>Lista de Peritos
+                </h3>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nombre Completo</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tipo</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Estado</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Asignaciones</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200" id="tablaPeritosBody">
+                        {% for perito in peritos %}
+                        <tr class="hover:bg-gray-50 transition perito-item-tabla" data-tipo="{{ perito.tipo }}">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                #{{ perito.id }}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 
+                                        {% if perito.tipo == 'Informático' %}bg-blue-100
+                                        {% elif perito.tipo == 'Acústico' %}bg-purple-100
+                                        {% elif perito.tipo == 'Antropólogo' %}bg-green-100
+                                        {% else %}bg-yellow-100{% endif %} 
+                                        rounded-full flex items-center justify-center mr-3">
+                                        <i class="fas fa-user 
+                                            {% if perito.tipo == 'Informático' %}text-blue-600
+                                            {% elif perito.tipo == 'Acústico' %}text-purple-600
+                                            {% elif perito.tipo == 'Antropólogo' %}text-green-600
+                                            {% else %}text-yellow-600{% endif %}"></i>
+                                    </div>
+                                    <span class="font-semibold">{{ perito.nombre }}</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-3 py-1 text-xs font-semibold rounded-full 
+                                    {% if perito.tipo == 'Informático' %}bg-blue-100 text-blue-800
+                                    {% elif perito.tipo == 'Acústico' %}bg-purple-100 text-purple-800
+                                    {% elif perito.tipo == 'Antropólogo' %}bg-green-100 text-green-800
+                                    {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                    {{ perito.tipo }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if perito.estado == 'Activo' %}
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                        <i class="fas fa-check-circle mr-1"></i>Activo
+                                    </span>
+                                {% else %}
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                        <i class="fas fa-times-circle mr-1"></i>Inactivo
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                <span class="text-lg font-bold text-blue-600">{{ perito.total_asignaciones }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <button data-perito-id="{{ perito.id }}" 
+                                        data-perito-nombre="{{ perito.nombre }}"
+                                        onclick="verHistorial(this.dataset.peritoId, this.dataset.peritoNombre)" 
+                                        class="...">
+                                    <i class="fas fa-history"></i>
+                                </button>
+
+                                <button data-perito-id="{{ perito.id }}" 
+                                        data-perito-nombre="{{ perito.nombre }}"
+                                        onclick="verCalendario(this.dataset.peritoId, this.dataset.peritoNombre)" 
+                                        class="...">
+                                    <i class="fas fa-history"></i>
+                                </button>
+
+
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Historial de Perito -->
+    <div id="modalHistorial" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4 flex justify-between items-center sticky top-0">
+                <h3 class="text-xl font-bold text-white" id="tituloHistorial">
+                    <i class="fas fa-history mr-2"></i>Historial de Asignaciones
+                </h3>
+                <button onclick="cerrarModalHistorial()" class="text-white hover:text-gray-200">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            
+            <!-- Estadísticas del perito -->
+            <div class="bg-blue-50 p-6 border-b">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="statsPerito">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+
+            <div id="contenidoHistorial" class="p-6">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white mt-12 py-6">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm">
+                <i class="fas fa-balance-scale mr-2"></i>SistemaPerito © 2025 - Sistema de Gestión de Asignaciones
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        /**
+         * Inicialización al cargar la página
+         */
+        document.addEventListener('DOMContentLoaded', function() {
+            actualizarContadores();
+        });
+
+        /**
+         * Actualizar contadores de estadísticas
+         */
+        function actualizarContadores() {
+            const peritos = document.querySelectorAll('.perito-item');
+            let informaticos = 0, acusticos = 0, otros = 0;
+
+            peritos.forEach(perito => {
+                const tipo = perito.getAttribute('data-tipo');
+                if (tipo === 'Informático') informaticos++;
+                else if (tipo === 'Acústico') acusticos++;
+                else otros++;
+            });
+
+            document.getElementById('totalInformaticos').textContent = informaticos;
+            document.getElementById('totalAcusticos').textContent = acusticos;
+            document.getElementById('totalOtros').textContent = otros;
+        }
+
+        /**
+         * Filtrar peritos por tipo
+         */
+        function filtrarPeritos() {
+            const filtro = document.getElementById('filtroTipo').value;
+            const peritosCards = document.querySelectorAll('.perito-item');
+            const peritosTabla = document.querySelectorAll('.perito-item-tabla');
+
+            // Filtrar vista de tarjetas
+            peritosCards.forEach(perito => {
+                if (filtro === '' || perito.getAttribute('data-tipo') === filtro) {
+                    perito.style.display = 'block';
+                } else {
+                    perito.style.display = 'none';
+                }
+            });
+
+            // Filtrar vista de tabla
+            peritosTabla.forEach(perito => {
+                if (filtro === '' || perito.getAttribute('data-tipo') === filtro) {
+                    perito.style.display = 'table-row';
+                } else {
+                    perito.style.display = 'none';
+                }
+            });
+        }
+
+        /**
+         * Alternar entre vista de tarjetas y tabla
+         */
+        function toggleVista() {
+            const vistaCards = document.getElementById('vistaCards');
+            const vistaTabla = document.getElementById('vistaTabla');
+            const btnVista = document.getElementById('btnVista');
+
+            if (vistaCards.classList.contains('hidden')) {
+                // Mostrar vista de tarjetas
+                vistaCards.classList.remove('hidden');
+                vistaTabla.classList.add('hidden');
+                btnVista.innerHTML = '<i class="fas fa-th-list mr-2"></i>Vista Tabla';
+            } else {
+                // Mostrar vista de tabla
+                vistaCards.classList.add('hidden');
+                vistaTabla.classList.remove('hidden');
+                btnVista.innerHTML = '<i class="fas fa-th mr-2"></i>Vista Tarjetas';
+            }
+        }
+
+        /**
+         * Ver historial de asignaciones de un perito
+         */
+        function verHistorial(peritoId, peritoNombre) {
+            document.getElementById('tituloHistorial').innerHTML = `
+                <i class="fas fa-history mr-2"></i>Historial de ${peritoNombre}
+            `;
+
+            // Mostrar indicador de carga
+            document.getElementById('contenidoHistorial').innerHTML = `
+                <div class="text-center py-12">
+                    <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
+                    <p class="text-gray-600">Cargando historial...</p>
+                </div>
+            `;
+
+            document.getElementById('modalHistorial').classList.remove('hidden');
+
+            // Obtener asignaciones del perito
+            fetch(`/api/asignaciones?perito_id=${peritoId}`)
+                .then(response => response.json())
+                .then(asignaciones => {
+                    // Calcular estadísticas
+                    const stats = {
+                        total: asignaciones.length,
+                        pendientes: asignaciones.filter(a => a.estado === 'Pendiente').length,
+                        enProceso: asignaciones.filter(a => a.estado === 'En Proceso').length,
+                        completados: asignaciones.filter(a => a.estado === 'Completado').length
+                    };
+
+                    // Mostrar estadísticas
+                    document.getElementById('statsPerito').innerHTML = `
+                        <div class="text-center">
+                            <p class="text-sm text-gray-600 font-semibold">Total</p>
+                            <p class="text-3xl font-bold text-blue-600">${stats.total}</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-sm text-gray-600 font-semibold">Pendientes</p>
+                            <p class="text-3xl font-bold text-yellow-600">${stats.pendientes}</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-sm text-gray-600 font-semibold">En Proceso</p>
+                            <p class="text-3xl font-bold text-orange-600">${stats.enProceso}</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-sm text-gray-600 font-semibold">Completados</p>
+                            <p class="text-3xl font-bold text-green-600">${stats.completados}</p>
+                        </div>
+                    `;
+
+                    // Mostrar historial
+                    if (asignaciones.length === 0) {
+                        document.getElementById('contenidoHistorial').innerHTML = `
+                            <div class="text-center py-12">
+                                <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
+                                <h3 class="text-xl font-bold text-gray-700 mb-2">Sin Asignaciones</h3>
+                                <p class="text-gray-500">Este perito no tiene asignaciones registradas</p>
+                            </div>
+                        `;
+                    } else {
+                        let html = '<div class="space-y-4">';
+                        
+                        asignaciones.forEach((asignacion, index) => {
+                            html += `
+                                <div class="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition">
+                                    <div class="flex justify-between items-start mb-3">
+                                        <div>
+                                            <h4 class="font-bold text-gray-800">
+                                                ${index + 1}. ${asignacion.expediente || 'Sin expediente'}
+                                            </h4>
+                                            <p class="text-sm text-gray-600">
+                                                <i class="far fa-calendar text-blue-500 mr-1"></i>
+                                                ${asignacion.fecha_inicio} al ${asignacion.fecha_fin}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            ${getEstadoBadge(asignacion.estado)}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <span class="font-semibold text-gray-600">Hoja Envío:</span>
+                                            <p class="text-gray-800">${asignacion.hoja_envio || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <span class="font-semibold text-gray-600">Dependencia:</span>
+                                            <p class="text-gray-800">${asignacion.dependencia || '-'}</p>
+                                        </div>
+                                        <div class="col-span-2">
+                                            <span class="font-semibold text-gray-600">Lugar:</span>
+                                            <p class="text-gray-800">
+                                                <i class="fas fa-map-marker-alt text-red-500 mr-1"></i>
+                                                ${asignacion.lugar || '-'}
+                                            </p>
+                                        </div>
+                                        <div class="col-span-2">
+                                            <span class="font-semibold text-gray-600">Observaciones:</span>
+                                            <p class="text-gray-800">${asignacion.observaciones || 'Sin observaciones'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += '</div>';
+                        document.getElementById('contenidoHistorial').innerHTML = html;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('contenidoHistorial').innerHTML = `
+                        <div class="text-center py-12">
+                            <i class="fas fa-exclamation-triangle text-6xl text-red-300 mb-4"></i>
+                            <h3 class="text-xl font-bold text-gray-700 mb-2">Error al cargar</h3>
+                            <p class="text-gray-500">No se pudo cargar el historial del perito</p>
+                        </div>
+                    `;
+                });
+        }
+
+        /**
+         * Ver calendario del perito (redirigir a página de calendario con filtro)
+         */
+        function verCalendario(peritoId, peritoNombre) {
+            // Redirigir a la página de calendario con el filtro del perito
+            window.location.href = `/calendario?perito=${peritoId}`;
+        }
+
+        /**
+         * Obtener badge de estado
+         */
+        function getEstadoBadge(estado) {
+            const badges = {
+                'Completado': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check-circle mr-1"></i>Completado</span>',
+                'En Proceso': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800"><i class="fas fa-spinner mr-1"></i>En Proceso</span>',
+                'Pendiente': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-clock mr-1"></i>Pendiente</span>',
+                'Cancelado': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"><i class="fas fa-times-circle mr-1"></i>Cancelado</span>'
+            };
+            return badges[estado] || estado;
+        }
+
+        /**
+         * Cerrar modal de historial
+         */
+        function cerrarModalHistorial() {
+            document.getElementById('modalHistorial').classList.add('hidden');
+        }
+
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('modalHistorial').addEventListener('click', function(e) {
+            if (e.target === this) {
+                cerrarModalHistorial();
+            }
+        });
+    </script>
+</body>
+</html>

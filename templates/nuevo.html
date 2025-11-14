@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SistemaPerito - Nueva Asignación</title>
+    
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Animaciones */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        /* Estilos para alertas */
+        .alert {
+            animation: slideIn 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Navegación Principal -->
+    <nav class="bg-blue-900 text-white shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-balance-scale text-3xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">SistemaPerito</h1>
+                        <p class="text-sm text-blue-200">Gestión de Asignaciones</p>
+                    </div>
+                </div>
+                
+                <!-- Menú de navegación -->
+                <div class="flex space-x-1">
+                    <a href="/" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-home mr-2"></i>Dashboard
+                    </a>
+                    <a href="/nuevo" class="px-4 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-plus mr-2"></i>Nueva Asignación
+                    </a>
+                    <a href="/buscar" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-search mr-2"></i>Buscar
+                    </a>
+                    <a href="/calendario" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-calendar mr-2"></i>Calendario
+                    </a>
+                    <a href="/peritos" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-users mr-2"></i>Peritos
+                    </a>
+                    <a href="/reportes" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-chart-bar mr-2"></i>Reportes
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <div class="container mx-auto px-4 py-8">
+        
+        <!-- Título de la página -->
+        <div class="mb-8 slide-in">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-plus-circle text-blue-900 mr-3"></i>Nueva Asignación de Perito
+            </h2>
+            <p class="text-gray-600">Complete el formulario para registrar una nueva asignación</p>
+        </div>
+
+        <!-- Alerta de disponibilidad -->
+        <div id="alertaDisponibilidad" class="hidden mb-6"></div>
+
+        <!-- Formulario Principal -->
+        <form id="formNuevaAsignacion" class="slide-in">
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                
+                <!-- Sección 1: Información del Documento -->
+                <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
+                    <h3 class="text-xl font-bold text-white flex items-center">
+                        <i class="fas fa-file-alt mr-3"></i>Información del Documento
+                    </h3>
+                </div>
+                
+                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Hoja de Envío -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-paper-plane text-blue-600 mr-2"></i>Hoja de Envío
+                        </label>
+                        <input type="text" 
+                               id="hoja_envio" 
+                               name="hoja_envio"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                               placeholder="Ej: 000241-2025">
+                    </div>
+
+                    <!-- Expediente -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-folder-open text-yellow-600 mr-2"></i>Expediente
+                        </label>
+                        <input type="text" 
+                               id="expediente" 
+                               name="expediente"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                               placeholder="Ej: FPCECC20250000293">
+                    </div>
+
+                    <!-- Dependencia -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-building text-green-600 mr-2"></i>Dependencia
+                        </label>
+                        <input type="text" 
+                               id="dependencia" 
+                               name="dependencia"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                               placeholder="Ej: UCAYALI">
+                    </div>
+
+                    <!-- Carpeta Fiscal -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-briefcase text-purple-600 mr-2"></i>Carpeta Fiscal
+                        </label>
+                        <input type="text" 
+                               id="carpeta_fiscal" 
+                               name="carpeta_fiscal"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                               placeholder="Ej: 06-2025">
+                    </div>
+                </div>
+
+                <!-- Sección 2: Selección de Perito -->
+                <div class="bg-gradient-to-r from-green-700 to-green-600 px-6 py-4">
+                    <h3 class="text-xl font-bold text-white flex items-center">
+                        <i class="fas fa-user-tie mr-3"></i>Selección de Perito
+                    </h3>
+                </div>
+                
+                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Tipo de Perito -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-tasks text-blue-600 mr-2"></i>Tipo de Perito <span class="text-red-500">*</span>
+                        </label>
+                        <select id="tipo_perito" 
+                                name="tipo_perito"
+                                required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <option value="">Seleccione tipo de perito</option>
+                            <option value="Informático">Perito Informático</option>
+                            <option value="Acústico">Perito Acústico</option>
+                            <option value="Antropólogo">Perito Antropólogo</option>
+                            <option value="Contable">Perito Contable</option>
+                        </select>
+                    </div>
+
+                    <!-- Perito Asignado -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-user-check text-green-600 mr-2"></i>Perito Asignado <span class="text-red-500">*</span>
+                        </label>
+                        <select id="perito_id" 
+                                name="perito_id"
+                                required
+                                disabled
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-gray-100">
+                            <option value="">Primero seleccione tipo de perito</option>
+                        </select>
+                    </div>
+
+                    <!-- Observaciones -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-comment-alt text-orange-600 mr-2"></i>Observaciones / Descripción del Trabajo
+                        </label>
+                        <textarea id="observaciones" 
+                                  name="observaciones"
+                                  rows="3"
+                                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                                  placeholder="Ej: TOMA DE MUESTRA DE VOZ, PERICIA CONTABLE RESPECTO A LOS INGRESOS Y EGRESOS..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Sección 3: Fechas y Ubicación -->
+                <div class="bg-gradient-to-r from-purple-700 to-purple-600 px-6 py-4">
+                    <h3 class="text-xl font-bold text-white flex items-center">
+                        <i class="fas fa-calendar-alt mr-3"></i>Fechas y Ubicación
+                    </h3>
+                </div>
+                
+                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Fecha de Inicio -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-calendar-check text-green-600 mr-2"></i>Fecha de Inicio <span class="text-red-500">*</span>
+                        </label>
+                        <input type="date" 
+                               id="fecha_inicio" 
+                               name="fecha_inicio"
+                               required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+
+                    <!-- Fecha de Fin -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-calendar-times text-red-600 mr-2"></i>Fecha de Fin <span class="text-red-500">*</span>
+                        </label>
+                        <input type="date" 
+                               id="fecha_fin" 
+                               name="fecha_fin"
+                               required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+
+                    <!-- Lugar -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-map-marker-alt text-red-500 mr-2"></i>Lugar / Ruta
+                        </label>
+                        <textarea id="lugar" 
+                                  name="lugar"
+                                  rows="2"
+                                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                                  placeholder="Ej: DESPLAZAMIENTO A PASCO - Lugar: Lima-Huánuco-Lima (Vía Aérea, ida: mañana), (Vía Terrestre, retorno: tarde)"></textarea>
+                    </div>
+                </div>
+
+                <!-- Sección 4: Documentos Oficiales -->
+                <div class="bg-gradient-to-r from-yellow-600 to-yellow-500 px-6 py-4">
+                    <h3 class="text-xl font-bold text-white flex items-center">
+                        <i class="fas fa-file-signature mr-3"></i>Documentos Oficiales
+                    </h3>
+                </div>
+                
+                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Perito Asignado (texto) -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-id-card text-blue-600 mr-2"></i>Perito Asignado (para documento)
+                        </label>
+                        <input type="text" 
+                               id="perito_asignado" 
+                               name="perito_asignado"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                               placeholder="Ej: WILBER">
+                    </div>
+
+                    <!-- Designación -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-stamp text-purple-600 mr-2"></i>Designación
+                        </label>
+                        <input type="text" 
+                               id="desginacion" 
+                               name="desginacion"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                               placeholder="Ej: 024076-2025 POR DESPACHO">
+                    </div>
+
+                    <!-- Oficio de Desplazamiento -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-file-contract text-green-600 mr-2"></i>Oficio de Desplazamiento
+                        </label>
+                        <input type="text" 
+                               id="oficio_desplazamiento" 
+                               name="oficio_desplazamiento"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                               placeholder="Ej: OFICIO 007305-2025-FSCN-FECCO">
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-4">
+                    <button type="button" 
+                            onclick="limpiarFormulario()" 
+                            class="px-6 py-3 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition transform hover:scale-105 shadow-md">
+                        <i class="fas fa-eraser mr-2"></i>Limpiar
+                    </button>
+                    <button type="submit" 
+                            id="btnGuardar"
+                            class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition transform hover:scale-105 shadow-md">
+                        <i class="fas fa-save mr-2"></i>Guardar Asignación
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal de Confirmación -->
+    <div id="modalExito" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div class="bg-gradient-to-r from-green-600 to-green-500 px-6 py-4 rounded-t-xl">
+                <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-check-circle mr-3 text-2xl"></i>¡Asignación Registrada!
+                </h3>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-700 mb-6" id="mensajeExito">
+                    La asignación se ha registrado correctamente en el sistema.
+                </p>
+                <div class="flex justify-end space-x-3">
+                    <button onclick="cerrarModalExito()" 
+                            class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                        <i class="fas fa-check mr-2"></i>Aceptar
+                    </button>
+                    <a href="/" 
+                       class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-home mr-2"></i>Ir al Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white mt-12 py-6">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm">
+                <i class="fas fa-balance-scale mr-2"></i>SistemaPerito © 2025 - Sistema de Gestión de Asignaciones
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Datos de peritos organizados por tipo (del backend)
+        const peritosPorTipo = {{ peritos | tojson | safe }};
+
+        /**
+         * Al cambiar el tipo de perito, cargar los peritos correspondientes
+         */
+        document.getElementById('tipo_perito').addEventListener('change', function() {
+            const tipoSeleccionado = this.value;
+            const selectPerito = document.getElementById('perito_id');
+            
+            // Limpiar opciones actuales
+            selectPerito.innerHTML = '<option value="">Seleccione un perito</option>';
+            
+            if (tipoSeleccionado && peritosPorTipo[tipoSeleccionado]) {
+                // Habilitar el select
+                selectPerito.disabled = false;
+                selectPerito.classList.remove('bg-gray-100');
+                
+                // Agregar peritos del tipo seleccionado
+                peritosPorTipo[tipoSeleccionado].forEach(perito => {
+                    const option = document.createElement('option');
+                    option.value = perito.id;
+                    option.textContent = perito.nombre;
+                    selectPerito.appendChild(option);
+                });
+            } else {
+                selectPerito.disabled = true;
+                selectPerito.classList.add('bg-gray-100');
+            }
+        });
+
+        /**
+         * Verificar disponibilidad del perito cuando se seleccionan fechas
+         */
+        function verificarDisponibilidad() {
+            const peritoId = document.getElementById('perito_id').value;
+            const fechaInicio = document.getElementById('fecha_inicio').value;
+            const fechaFin = document.getElementById('fecha_fin').value;
+            
+            // Solo verificar si tenemos todos los datos
+            if (!peritoId || !fechaInicio || !fechaFin) {
+                return;
+            }
+            
+            // Validar que fecha fin sea >= fecha inicio
+            if (fechaFin < fechaInicio) {
+                mostrarAlerta('error', 'La fecha de fin no puede ser anterior a la fecha de inicio');
+                return;
+            }
+            
+            // Hacer petición al servidor
+            fetch('/api/verificar-disponibilidad', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    perito_id: peritoId,
+                    fecha_inicio: fechaInicio,
+                    fecha_fin: fechaFin
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.disponible) {
+                    mostrarAlerta('success', 'El perito está disponible para estas fechas ✓');
+                } else {
+                    let mensaje = 'ALERTA: El perito ya tiene asignaciones en estas fechas:<br><br>';
+                    data.conflictos.forEach(conflicto => {
+                        mensaje += `• Expediente: ${conflicto.expediente}<br>`;
+                        mensaje += `  Fechas: ${conflicto.fecha_inicio} al ${conflicto.fecha_fin}<br>`;
+                        mensaje += `  Obs: ${conflicto.observaciones || 'N/A'}<br><br>`;
+                    });
+                    mostrarAlerta('warning', mensaje);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        // Agregar listeners para verificación automática
+        document.getElementById('perito_id').addEventListener('change', verificarDisponibilidad);
+        document.getElementById('fecha_inicio').addEventListener('change', verificarDisponibilidad);
+        document.getElementById('fecha_fin').addEventListener('change', verificarDisponibilidad);
+
+        /**
+         * Mostrar alerta de disponibilidad
+         */
+        function mostrarAlerta(tipo, mensaje) {
+            const alerta = document.getElementById('alertaDisponibilidad');
+            
+            const estilos = {
+                success: 'bg-green-100 border-green-500 text-green-800',
+                warning: 'bg-yellow-100 border-yellow-500 text-yellow-800',
+                error: 'bg-red-100 border-red-500 text-red-800'
+            };
+            
+            const iconos = {
+                success: 'fa-check-circle',
+                warning: 'fa-exclamation-triangle',
+                error: 'fa-times-circle'
+            };
+            
+            alerta.className = `alert border-l-4 p-4 rounded-lg shadow-md ${estilos[tipo]}`;
+            alerta.innerHTML = `
+                <div class="flex items-start">
+                    <i class="fas ${iconos[tipo]} text-2xl mr-3 mt-1"></i>
+                    <div class="flex-1">${mensaje}</div>
+                </div>
+            `;
+            alerta.classList.remove('hidden');
+            
+            // Auto-ocultar alertas de éxito después de 5 segundos
+            if (tipo === 'success') {
+                setTimeout(() => {
+                    alerta.classList.add('hidden');
+                }, 5000);
+            }
+        }
+
+        /**
+         * Manejar el envío del formulario
+         */
+        document.getElementById('formNuevaAsignacion').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Recopilar datos del formulario
+            const formData = {
+                hoja_envio: document.getElementById('hoja_envio').value,
+                expediente: document.getElementById('expediente').value,
+                dependencia: document.getElementById('dependencia').value,
+                tipo_perito: document.getElementById('tipo_perito').value,
+                carpeta_fiscal: document.getElementById('carpeta_fiscal').value,
+                observaciones: document.getElementById('observaciones').value,
+                lugar: document.getElementById('lugar').value,
+                fecha_inicio: document.getElementById('fecha_inicio').value,
+                fecha_fin: document.getElementById('fecha_fin').value,
+                perito_id: document.getElementById('perito_id').value,
+                perito_asignado: document.getElementById('perito_asignado').value,
+                desginacion: document.getElementById('desginacion').value,
+                oficio_desplazamiento: document.getElementById('oficio_desplazamiento').value
+            };
+            
+            // Validar campos requeridos
+            if (!formData.perito_id || !formData.fecha_inicio || !formData.fecha_fin) {
+                mostrarAlerta('error', 'Por favor complete todos los campos requeridos (*)');
+                return;
+            }
+            
+            // Deshabilitar botón de guardar
+            const btnGuardar = document.getElementById('btnGuardar');
+            btnGuardar.disabled = true;
+            btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Guardando...';
+            
+            // Enviar datos al servidor
+            fetch('/api/asignacion', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Mostrar modal de éxito
+                    document.getElementById('mensajeExito').innerHTML = 
+                        `La asignación #${data.id} se ha registrado correctamente en el sistema.`;
+                    document.getElementById('modalExito').classList.remove('hidden');
+                    
+                    // Limpiar formulario
+                    limpiarFormulario();
+                } else if (data.error) {
+                    // Mostrar error
+                    mostrarAlerta('error', data.error);
+                    
+                    // Si hay conflictos, mostrarlos
+                    if (data.conflictos) {
+                        let mensaje = 'Conflictos detectados:<br><br>';
+                        data.conflictos.forEach(c => {
+                            mensaje += `• Expediente: ${c[1]}<br>`;
+                            mensaje += `  Fechas: ${c[2]} al ${c[3]}<br><br>`;
+                        });
+                        mostrarAlerta('warning', mensaje);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                mostrarAlerta('error', 'Error al guardar la asignación. Por favor intente nuevamente.');
+            })
+            .finally(() => {
+                // Rehabilitar botón
+                btnGuardar.disabled = false;
+                btnGuardar.innerHTML = '<i class="fas fa-save mr-2"></i>Guardar Asignación';
+            });
+        });
+
+        /**
+         * Limpiar todos los campos del formulario
+         */
+        function limpiarFormulario() {
+            document.getElementById('formNuevaAsignacion').reset();
+            document.getElementById('perito_id').disabled = true;
+            document.getElementById('perito_id').classList.add('bg-gray-100');
+            document.getElementById('alertaDisponibilidad').classList.add('hidden');
+        }
+
+        /**
+         * Cerrar modal de éxito
+         */
+        function cerrarModalExito() {
+            document.getElementById('modalExito').classList.add('hidden');
+        }
+
+        // Establecer fecha mínima como hoy
+        const hoy = new Date().toISOString().split('T')[0];
+        document.getElementById('fecha_inicio').setAttribute('min', hoy);
+        document.getElementById('fecha_fin').setAttribute('min', hoy);
+    </script>
+</body>
+</html>

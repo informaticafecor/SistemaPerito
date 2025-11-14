@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SistemaPerito - Búsqueda Avanzada</title>
+    
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Animaciones */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        /* Efecto de carga */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Highlight de resultados */
+        .resultado-item:hover {
+            background-color: #f3f4f6;
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Navegación Principal -->
+    <nav class="bg-blue-900 text-white shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-balance-scale text-3xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">SistemaPerito</h1>
+                        <p class="text-sm text-blue-200">Gestión de Asignaciones</p>
+                    </div>
+                </div>
+                
+                <!-- Menú de navegación -->
+                <div class="flex space-x-1">
+                    <a href="/" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-home mr-2"></i>Dashboard
+                    </a>
+                    <a href="/nuevo" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-plus mr-2"></i>Nueva Asignación
+                    </a>
+                    <a href="/buscar" class="px-4 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-search mr-2"></i>Buscar
+                    </a>
+                    <a href="/calendario" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-calendar mr-2"></i>Calendario
+                    </a>
+                    <a href="/peritos" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-users mr-2"></i>Peritos
+                    </a>
+                    <a href="/reportes" class="px-4 py-2 rounded-lg hover:bg-blue-800 transition">
+                        <i class="fas fa-chart-bar mr-2"></i>Reportes
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <div class="container mx-auto px-4 py-8">
+        
+        <!-- Título de la página -->
+        <div class="mb-8 fade-in">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-search text-purple-600 mr-3"></i>Búsqueda Avanzada
+            </h2>
+            <p class="text-gray-600">Encuentra asignaciones por diferentes criterios</p>
+        </div>
+
+        <!-- Panel de Búsqueda -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-8 fade-in">
+            <div class="bg-gradient-to-r from-purple-700 to-purple-600 px-6 py-4">
+                <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-filter mr-3"></i>Criterios de Búsqueda
+                </h3>
+            </div>
+
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Búsqueda General -->
+                    <div class="md:col-span-2 lg:col-span-3">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-search text-purple-600 mr-2"></i>Búsqueda General
+                        </label>
+                        <div class="flex space-x-2">
+                            <input type="text" 
+                                   id="busquedaGeneral" 
+                                   placeholder="Buscar por número de oficio, expediente, perito, lugar..."
+                                   class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                            <button onclick="buscarGeneral()" 
+                                    class="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition transform hover:scale-105 shadow-md">
+                                <i class="fas fa-search mr-2"></i>Buscar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filtro por Estado -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-flag text-blue-600 mr-2"></i>Estado
+                        </label>
+                        <select id="filtroEstado" 
+                                onchange="aplicarFiltros()"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                            <option value="">Todos los estados</option>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="En Proceso">En Proceso</option>
+                            <option value="Completado">Completado</option>
+                            <option value="Cancelado">Cancelado</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro por Tipo de Perito -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-user-tie text-green-600 mr-2"></i>Tipo de Perito
+                        </label>
+                        <select id="filtroTipo" 
+                                onchange="aplicarFiltros()"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                            <option value="">Todos los tipos</option>
+                            <option value="Informático">Informático</option>
+                            <option value="Acústico">Acústico</option>
+                            <option value="Antropólogo">Antropólogo</option>
+                            <option value="Contable">Contable</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro por Perito Específico -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-user text-orange-600 mr-2"></i>Perito Específico
+                        </label>
+                        <select id="filtroPerito" 
+                                onchange="aplicarFiltros()"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                            <option value="">Todos los peritos</option>
+                        </select>
+                    </div>
+
+                    <!-- Fecha Desde -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-calendar-check text-green-600 mr-2"></i>Fecha Desde
+                        </label>
+                        <input type="date" 
+                               id="fechaDesde" 
+                               onchange="aplicarFiltros()"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                    </div>
+
+                    <!-- Fecha Hasta -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-calendar-times text-red-600 mr-2"></i>Fecha Hasta
+                        </label>
+                        <input type="date" 
+                               id="fechaHasta" 
+                               onchange="aplicarFiltros()"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                    </div>
+
+                    <!-- Búsqueda por Campo Específico -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-filter text-yellow-600 mr-2"></i>Campo Específico
+                        </label>
+                        <select id="campoEspecifico" 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                            <option value="todos">Buscar en todos los campos</option>
+                            <option value="hoja_envio">Hoja de Envío</option>
+                            <option value="expediente">Expediente</option>
+                            <option value="carpeta_fiscal">Carpeta Fiscal</option>
+                            <option value="lugar">Lugar</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button onclick="limpiarFiltros()" 
+                            class="px-6 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition">
+                        <i class="fas fa-eraser mr-2"></i>Limpiar Filtros
+                    </button>
+                    <button onclick="exportarResultados()" 
+                            id="btnExportar"
+                            class="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
+                        <i class="fas fa-file-excel mr-2"></i>Exportar a Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estadísticas de Resultados -->
+        <div id="estadisticasResultados" class="hidden mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+                    <p class="text-sm text-gray-600 font-semibold">Total Encontrados</p>
+                    <p class="text-2xl font-bold text-gray-800" id="totalResultados">0</p>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
+                    <p class="text-sm text-gray-600 font-semibold">Pendientes</p>
+                    <p class="text-2xl font-bold text-yellow-600" id="totalPendientes">0</p>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
+                    <p class="text-sm text-gray-600 font-semibold">En Proceso</p>
+                    <p class="text-2xl font-bold text-orange-600" id="totalEnProceso">0</p>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+                    <p class="text-sm text-gray-600 font-semibold">Completados</p>
+                    <p class="text-2xl font-bold text-green-600" id="totalCompletados">0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Indicador de Carga -->
+        <div id="loadingIndicator" class="hidden text-center py-12">
+            <div class="inline-block">
+                <div class="loading" style="width: 50px; height: 50px; border-width: 5px;"></div>
+            </div>
+            <p class="text-gray-600 mt-4 text-lg">Buscando asignaciones...</p>
+        </div>
+
+        <!-- Mensaje de sin resultados -->
+        <div id="sinResultados" class="hidden bg-white rounded-xl shadow-lg p-12 text-center">
+            <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-2xl font-bold text-gray-700 mb-2">No se encontraron resultados</h3>
+            <p class="text-gray-500">Intenta ajustar los criterios de búsqueda o filtros</p>
+        </div>
+
+        <!-- Tabla de Resultados -->
+        <div id="tablaResultados" class="hidden bg-white rounded-xl shadow-lg overflow-hidden fade-in">
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
+                <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-list mr-3"></i>Resultados de Búsqueda
+                </h3>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hoja Envío</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Expediente</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Perito</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tipo</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Fecha Inicio</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Fecha Fin</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Estado</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Lugar</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpoTabla" class="divide-y divide-gray-200">
+                        <!-- Los resultados se cargarán aquí dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Ver Detalle (igual que en index.html) -->
+    <div id="modalDetalle" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-white">
+                    <i class="fas fa-info-circle mr-2"></i>Detalle de Asignación
+                </h3>
+                <button onclick="cerrarModal()" class="text-white hover:text-gray-200">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div id="contenidoDetalle" class="p-6">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white mt-12 py-6">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm">
+                <i class="fas fa-balance-scale mr-2"></i>SistemaPerito © 2025 - Sistema de Gestión de Asignaciones
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Variable global para almacenar los resultados actuales
+        let resultadosActuales = [];
+
+        /**
+         * Cargar lista de peritos al iniciar la página
+         */
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarPeritos();
+            // Cargar todas las asignaciones por defecto
+            aplicarFiltros();
+        });
+
+        /**
+         * Cargar lista de peritos para el filtro
+         */
+        function cargarPeritos() {
+            fetch('/api/peritos')
+                .then(response => response.json())
+                .then(peritos => {
+                    const selectPerito = document.getElementById('filtroPerito');
+                    peritos.forEach(perito => {
+                        const option = document.createElement('option');
+                        option.value = perito.id;
+                        option.textContent = `${perito.nombre} (${perito.tipo})`;
+                        selectPerito.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error al cargar peritos:', error));
+        }
+
+        /**
+         * Búsqueda general por término
+         */
+        function buscarGeneral() {
+            const termino = document.getElementById('busquedaGeneral').value.trim();
+            const campo = document.getElementById('campoEspecifico').value;
+            
+            if (!termino) {
+                alert('Por favor ingrese un término de búsqueda');
+                return;
+            }
+            
+            // Mostrar indicador de carga
+            mostrarCargando();
+            
+            // Construir URL con parámetros
+            const url = `/api/buscar?q=${encodeURIComponent(termino)}&campo=${campo}`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    resultadosActuales = data;
+                    mostrarResultados(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    ocultarCargando();
+                    alert('Error al realizar la búsqueda');
+                });
+        }
+
+        /**
+         * Aplicar filtros avanzados
+         */
+        function aplicarFiltros() {
+            // Mostrar indicador de carga
+            mostrarCargando();
+            
+            // Construir URL con filtros
+            const params = new URLSearchParams();
+            
+            const estado = document.getElementById('filtroEstado').value;
+            const peritoId = document.getElementById('filtroPerito').value;
+            const fechaDesde = document.getElementById('fechaDesde').value;
+            const fechaHasta = document.getElementById('fechaHasta').value;
+            
+            if (estado) params.append('estado', estado);
+            if (peritoId) params.append('perito_id', peritoId);
+            if (fechaDesde) params.append('fecha_desde', fechaDesde);
+            if (fechaHasta) params.append('fecha_hasta', fechaHasta);
+            
+            fetch(`/api/asignaciones?${params.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    resultadosActuales = data;
+                    mostrarResultados(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    ocultarCargando();
+                    alert('Error al aplicar filtros');
+                });
+        }
+
+        /**
+         * Mostrar indicador de carga
+         */
+        function mostrarCargando() {
+            document.getElementById('loadingIndicator').classList.remove('hidden');
+            document.getElementById('tablaResultados').classList.add('hidden');
+            document.getElementById('sinResultados').classList.add('hidden');
+            document.getElementById('estadisticasResultados').classList.add('hidden');
+        }
+
+        /**
+         * Ocultar indicador de carga
+         */
+        function ocultarCargando() {
+            document.getElementById('loadingIndicator').classList.add('hidden');
+        }
+
+        /**
+         * Mostrar resultados en la tabla
+         */
+        function mostrarResultados(resultados) {
+            ocultarCargando();
+            
+            if (resultados.length === 0) {
+                document.getElementById('sinResultados').classList.remove('hidden');
+                return;
+            }
+            
+            // Mostrar estadísticas
+            actualizarEstadisticas(resultados);
+            
+            // Mostrar tabla
+            document.getElementById('tablaResultados').classList.remove('hidden');
+            
+            // Llenar tabla
+            const tbody = document.getElementById('cuerpoTabla');
+            tbody.innerHTML = '';
+            
+            resultados.forEach(asignacion => {
+                const fila = document.createElement('tr');
+                fila.className = 'resultado-item hover:bg-gray-50 transition';
+                fila.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        #${asignacion.id}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        ${asignacion.hoja_envio || '-'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        ${asignacion.expediente || '-'}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-900">
+                        <div class="font-medium truncate max-w-xs" title="${asignacion.perito_nombre || asignacion.perito_asignado}">
+                            ${(asignacion.perito_nombre || asignacion.perito_asignado || '-').substring(0, 25)}...
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full ${getTipoColor(asignacion.tipo_perito)}">
+                            ${asignacion.tipo_perito || '-'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        <i class="far fa-calendar text-green-500 mr-1"></i>
+                        ${asignacion.fecha_inicio}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        <i class="far fa-calendar text-red-500 mr-1"></i>
+                        ${asignacion.fecha_fin}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        ${getEstadoBadge(asignacion.estado)}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-600">
+                        <div class="max-w-xs truncate" title="${asignacion.lugar || '-'}">
+                            <i class="fas fa-map-marker-alt text-red-500 mr-1"></i>
+                            ${(asignacion.lugar || '-').substring(0, 30)}...
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <button onclick="verDetalle(${asignacion.id})" 
+                                class="text-blue-600 hover:text-blue-800 mr-3" 
+                                title="Ver detalle">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button onclick="editarAsignacion(${asignacion.id})" 
+                                class="text-green-600 hover:text-green-800" 
+                                title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(fila);
+            });
+        }
+
+        /**
+         * Actualizar estadísticas de resultados
+         */
+        function actualizarEstadisticas(resultados) {
+            document.getElementById('estadisticasResultados').classList.remove('hidden');
+            
+            const stats = {
+                total: resultados.length,
+                pendientes: resultados.filter(r => r.estado === 'Pendiente').length,
+                enProceso: resultados.filter(r => r.estado === 'En Proceso').length,
+                completados: resultados.filter(r => r.estado === 'Completado').length
+            };
+            
+            document.getElementById('totalResultados').textContent = stats.total;
+            document.getElementById('totalPendientes').textContent = stats.pendientes;
+            document.getElementById('totalEnProceso').textContent = stats.enProceso;
+            document.getElementById('totalCompletados').textContent = stats.completados;
+        }
+
+        /**
+         * Obtener color según tipo de perito
+         */
+        function getTipoColor(tipo) {
+            const colores = {
+                'Informático': 'bg-blue-100 text-blue-800',
+                'Acústico': 'bg-purple-100 text-purple-800',
+                'Antropólogo': 'bg-green-100 text-green-800',
+                'Contable': 'bg-yellow-100 text-yellow-800'
+            };
+            return colores[tipo] || 'bg-gray-100 text-gray-800';
+        }
+
+        /**
+         * Obtener badge de estado
+         */
+        function getEstadoBadge(estado) {
+            const badges = {
+                'Completado': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check-circle mr-1"></i>Completado</span>',
+                'En Proceso': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800"><i class="fas fa-spinner mr-1"></i>En Proceso</span>',
+                'Pendiente': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-clock mr-1"></i>Pendiente</span>',
+                'Cancelado': '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"><i class="fas fa-times-circle mr-1"></i>Cancelado</span>'
+            };
+            return badges[estado] || estado;
+        }
+
+        /**
+         * Limpiar todos los filtros
+         */
+        function limpiarFiltros() {
+            document.getElementById('busquedaGeneral').value = '';
+            document.getElementById('filtroEstado').value = '';
+            document.getElementById('filtroTipo').value = '';
+            document.getElementById('filtroPerito').value = '';
+            document.getElementById('fechaDesde').value = '';
+            document.getElementById('fechaHasta').value = '';
+            document.getElementById('campoEspecifico').value = 'todos';
+            
+            // Recargar todas las asignaciones
+            aplicarFiltros();
+        }
+
+        /**
+         * Exportar resultados a Excel
+         */
+        function exportarResultados() {
+            if (resultadosActuales.length === 0) {
+                alert('No hay resultados para exportar');
+                return;
+            }
+            
+            // Construir URL con los filtros actuales
+            const params = new URLSearchParams();
+            
+            const estado = document.getElementById('filtroEstado').value;
+            const fechaDesde = document.getElementById('fechaDesde').value;
+            const fechaHasta = document.getElementById('fechaHasta').value;
+            
+            if (estado) params.append('estado', estado);
+            if (fechaDesde) params.append('fecha_desde', fechaDesde);
+            if (fechaHasta) params.append('fecha_hasta', fechaHasta);
+            
+            // Abrir en nueva ventana para descargar
+            window.open(`/api/exportar/excel?${params.toString()}`, '_blank');
+        }
+
+        /**
+         * Ver detalle de asignación (reutilizar del index.html)
+         */
+        function verDetalle(id) {
+            document.getElementById('modalDetalle').classList.remove('hidden');
+            
+            fetch(`/api/asignacion/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    const contenido = `
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="col-span-2 bg-blue-50 p-4 rounded-lg mb-4">
+                                <h4 class="text-lg font-bold text-blue-900 mb-2">
+                                    <i class="fas fa-file-alt mr-2"></i>Información General
+                                </h4>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Hoja de Envío:</label>
+                                <p class="text-gray-800">${data.hoja_envio || '-'}</p>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Expediente:</label>
+                                <p class="text-gray-800">${data.expediente || '-'}</p>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Dependencia:</label>
+                                <p class="text-gray-800">${data.dependencia || '-'}</p>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Tipo de Perito:</label>
+                                <p class="text-gray-800">${data.tipo_perito || '-'}</p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Carpeta Fiscal:</label>
+                                <p class="text-gray-800">${data.carpeta_fiscal || '-'}</p>
+                            </div>
+                            
+                            <div class="col-span-2 bg-green-50 p-4 rounded-lg my-4">
+                                <h4 class="text-lg font-bold text-green-900 mb-2">
+                                    <i class="fas fa-user-tie mr-2"></i>Perito Asignado
+                                </h4>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Nombre del Perito:</label>
+                                <p class="text-gray-800 text-lg font-semibold">${data.perito_nombre || data.perito_asignado}</p>
+                            </div>
+                            
+                            <div class="col-span-2 bg-purple-50 p-4 rounded-lg my-4">
+                                <h4 class="text-lg font-bold text-purple-900 mb-2">
+                                    <i class="fas fa-calendar-alt mr-2"></i>Fechas y Ubicación
+                                </h4>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Fecha Inicio:</label>
+                                <p class="text-gray-800">
+                                    <i class="far fa-calendar-check text-green-600 mr-1"></i>
+                                    ${data.fecha_inicio}
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Fecha Fin:</label>
+                                <p class="text-gray-800">
+                                    <i class="far fa-calendar-times text-red-600 mr-1"></i>
+                                    ${data.fecha_fin}
+                                </p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Lugar:</label>
+                                <p class="text-gray-800">
+                                    <i class="fas fa-map-marker-alt text-red-500 mr-1"></i>
+                                    ${data.lugar || '-'}
+                                </p>
+                            </div>
+                            
+                            <div class="col-span-2 bg-yellow-50 p-4 rounded-lg my-4">
+                                <h4 class="text-lg font-bold text-yellow-900 mb-2">
+                                    <i class="fas fa-file-signature mr-2"></i>Documentos Oficiales
+                                </h4>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Designación:</label>
+                                <p class="text-gray-800">${data.desginacion || '-'}</p>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Oficio Desplazamiento:</label>
+                                <p class="text-gray-800">${data.oficio_desplazamiento || '-'}</p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Observaciones:</label>
+                                <p class="text-gray-800 bg-gray-50 p-3 rounded-lg">${data.observaciones || 'Sin observaciones'}</p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Estado Actual:</label>
+                                <p class="text-gray-800">
+                                    ${getEstadoBadge(data.estado)}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6 flex justify-end space-x-3">
+                            <button onclick="cerrarModal()" 
+                                    class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                                <i class="fas fa-times mr-2"></i>Cerrar
+                            </button>
+                        </div>
+                    `;
+                    
+                    document.getElementById('contenidoDetalle').innerHTML = contenido;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al cargar el detalle de la asignación');
+                });
+        }
+
+        /**
+         * Cerrar modal
+         */
+        function cerrarModal() {
+            document.getElementById('modalDetalle').classList.add('hidden');
+        }
+
+        /**
+         * Editar asignación
+         */
+        function editarAsignacion(id) {
+            alert('Función de edición en desarrollo. ID: ' + id);
+        }
+
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('modalDetalle').addEventListener('click', function(e) {
+            if (e.target === this) {
+                cerrarModal();
+            }
+        });
+
+        // Permitir búsqueda con Enter
+        document.getElementById('busquedaGeneral').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                buscarGeneral();
+            }
+        });
+    </script>
+</body>
+</html>
