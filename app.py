@@ -112,9 +112,41 @@ def init_db():
     
     conn.close()
 
+
+def actualizar_estados_automaticos():
+    """
+    Actualiza automáticamente los estados de las asignaciones según las fechas
+    """
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    hoy = datetime.now().date()
+    
+    # Cambiar a "En Proceso" si la fecha de inicio es hoy o pasó
+    cursor.execute('''
+        UPDATE asignaciones 
+        SET estado = "En Proceso"
+        WHERE estado = "Pendiente" 
+        AND date(fecha_inicio) <= date('now')
+        AND date(fecha_fin) >= date('now')
+    ''')
+    
+    # Cambiar a "Completado" si la fecha de fin ya pasó
+    cursor.execute('''
+        UPDATE asignaciones 
+        SET estado = "Completado"
+        WHERE estado IN ("Pendiente", "En Proceso")
+        AND date(fecha_fin) < date('now')
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+
 # ============================================================================
 # FUNCIONES AUXILIARES
 # ============================================================================
+
 
 def verificar_disponibilidad(perito_id, fecha_inicio, fecha_fin, asignacion_id=None):
     """
@@ -198,6 +230,9 @@ def index():
     """
     Página principal - Dashboard con estadísticas generales
     """
+    # Actualizar estados automáticamente
+    actualizar_estados_automaticos()
+    
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     
@@ -216,9 +251,14 @@ def index():
     
     # Obtener asignaciones recientes (últimas 10)
     cursor.execute('''
-        SELECT a.*, p.nombre_completo
+        SELECT a.id, a.hoja_envio, a.expediente, a.dependencia, 
+               a.tipo_perito, a.carpeta_fiscal, a.observaciones, a.lugar,
+               a.fecha_inicio, a.fecha_fin, a.perito_asignado, a.perito_id,
+               a.desginacion, a.oficio_desplazamiento, a.estado, a.fecha_registro,
+               p.nombre_completo
         FROM asignaciones a
         LEFT JOIN peritos p ON a.perito_id = p.id
+        WHERE a.estado != "Cancelado"
         ORDER BY a.fecha_registro DESC
         LIMIT 10
     ''')
@@ -229,9 +269,11 @@ def index():
             'id': row[0],
             'hoja_envio': row[1],
             'expediente': row[2],
+            'dependencia': row[3],
+            'tipo_perito': row[4],
             'fecha_inicio': row[8],
             'fecha_fin': row[9],
-            'perito': row[16],
+            'perito': row[16] or row[10],  # nombre_completo o perito_asignado
             'estado': row[14],
             'lugar': row[7]
         })
@@ -390,6 +432,10 @@ def get_asignaciones():
     
     conn.close()
     return jsonify(asignaciones)
+
+
+
+
 
 @app.route('/api/asignacion/<int:id>', methods=['GET'])
 def get_asignacion(id):
@@ -556,27 +602,66 @@ def actualizar_asignacion(id):
         'message': 'Asignación actualizada exitosamente'
     })
 
+# ------------------------------------------------------
+
 @app.route('/api/asignacion/<int:id>', methods=['DELETE'])
 def eliminar_asignacion(id):
     """
-    Elimina (o marca como cancelada) una asignación
+    Elimina (marca como cancelada) una asignación
     """
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     
-    # En lugar de eliminar, marcar como cancelada (mejor práctica)
+    # Verificar que la asignación existe
+    cursor.execute('SELECT * FROM asignaciones WHERE id = ?', (id,))
+    asignacion = cursor.fetchone()
+    
+    if not asignacion:
+        conn.close()
+        return jsonify({'error': 'Asignación no encontrada'}), 404
+    
+    # Marcar como cancelada en lugar de eliminar
     cursor.execute('UPDATE asignaciones SET estado = "Cancelado" WHERE id = ?', (id,))
     
     conn.commit()
     conn.close()
     
     # Registrar en historial
-    registrar_historial(id, 'Cancelado', 'Asignación cancelada')
+    registrar_historial(id, 'Cancelado', 'Asignación cancelada por el usuario')
     
     return jsonify({
         'success': True,
         'message': 'Asignación cancelada exitosamente'
     })
+
+
+@app.route('/api/asignacion/<int:id>/cambiar-estado', methods=['PUT'])
+def cambiar_estado_asignacion(id):
+    """
+    Cambia el estado de una asignación
+    """
+    data = request.json
+    nuevo_estado = data.get('estado')
+    
+    if nuevo_estado not in ['Pendiente', 'En Proceso', 'Completado', 'Cancelado']:
+        return jsonify({'error': 'Estado inválido'}), 400
+    
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('UPDATE asignaciones SET estado = ? WHERE id = ?', (nuevo_estado, id))
+    conn.commit()
+    conn.close()
+    
+    # Registrar en historial
+    registrar_historial(id, 'Modificado', f'Estado cambiado a: {nuevo_estado}')
+    
+    return jsonify({
+        'success': True,
+        'message': f'Estado actualizado a {nuevo_estado}'
+    })
+
+
 
 @app.route('/api/verificar-disponibilidad', methods=['POST'])
 def api_verificar_disponibilidad():

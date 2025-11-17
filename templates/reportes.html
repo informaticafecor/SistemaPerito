@@ -113,14 +113,23 @@
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition">
                 </div>
 
+
                 <div class="flex items-end space-x-3">
                     <button onclick="cargarEstadisticas()" 
-                            class="flex-1 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
+                            class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
                         <i class="fas fa-sync-alt mr-2"></i>Actualizar
                     </button>
-                    <button onclick="exportarReporte()" 
-                            class="flex-1 px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
-                        <i class="fas fa-file-excel mr-2"></i>Exportar
+                    <button onclick="exportarTodo()" 
+                            class="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
+                        <i class="fas fa-file-excel mr-2"></i>Exportar Todo
+                    </button>
+                    <button onclick="exportarPendientes()" 
+                            class="px-6 py-2 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700 transition">
+                        <i class="fas fa-clock mr-2"></i>Solo Pendientes
+                    </button>
+                    <button onclick="exportarCompletados()" 
+                            class="px-6 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition">
+                        <i class="fas fa-check-circle mr-2"></i>Solo Completados
                     </button>
                 </div>
             </div>
@@ -736,16 +745,33 @@
         /**
          * Exportar reporte a Excel
          */
-        function exportarReporte() {
-            const fechaDesde = document.getElementById('fechaDesde').value;
-            const fechaHasta = document.getElementById('fechaHasta').value;
-            
-            const params = new URLSearchParams();
-            if (fechaDesde) params.append('fecha_desde', fechaDesde);
-            if (fechaHasta) params.append('fecha_hasta', fechaHasta);
-            
-            window.open(`/api/exportar/excel?${params.toString()}`, '_blank');
+        /**
+         * Exportar reporte a Excel (TODOS los datos o filtrados)
+         */
+         
+        /**
+         * Exportar TODO sin filtros
+         */
+        function exportarTodo() {
+            window.open('/api/exportar/excel', '_blank');
         }
+
+        /**
+         * Exportar solo pendientes
+         */
+        function exportarPendientes() {
+            window.open('/api/exportar/excel?estado=Pendiente', '_blank');
+        }
+
+        /**
+         * Exportar solo completados
+         */
+        function exportarCompletados() {
+            window.open('/api/exportar/excel?estado=Completado', '_blank');
+        }
+
+
+
     </script>
 </body>
 </html>
