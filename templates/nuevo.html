@@ -193,6 +193,38 @@
                         </select>
                     </div>
 
+                    <!-- Tipo de Actividad -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-clipboard-check text-purple-600 mr-2"></i>Tipo de Actividad <span class="text-red-500">*</span>
+                        </label>
+                        <select id="tipo_actividad" 
+                                name="tipo_actividad"
+                                required
+                                disabled
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-gray-100">
+                            <option value="">Primero seleccione tipo de perito</option>
+                        </select>
+                    </div>
+
+                    <!-- Apoyo Técnico (Opcional) -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-user-friends text-teal-600 mr-2"></i>Apoyo Técnico (Opcional)
+                        </label>
+                        <select id="apoyo_tecnico" 
+                                name="apoyo_tecnico"
+                                disabled
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-gray-100">
+                            <option value="">Sin apoyo técnico</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Selecciona si el perito requiere asistencia técnica
+                        </p>
+                    </div>
+
+
                     <!-- Observaciones -->
                     <div class="md:col-span-2">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
@@ -405,33 +437,139 @@
         // Datos de peritos organizados por tipo (del backend)
         const peritosPorTipo = {{ peritos | tojson | safe }};
 
-        /**
-         * Al cambiar el tipo de perito, cargar los peritos correspondientes
+        // Definir actividades por tipo de perito
+        const actividadesPorTipo = {
+            'Informático': [
+                'Diligencia de deslacrado',
+                'Diligencia de extracción',
+                'Diligencia de visualización',
+                'Diligencia de sustentación de pericia',
+                'Diligencia de juramentación'
+            ],
+            'Contable': [
+                'Juramentación',
+                'Mesas de Trabajo',
+                'Diligencias',
+                'Juicio Oral'
+            ],
+            'Acústico': [
+                'Diligencias de Toma de muestra de Voz',
+                'Juramentación',
+                'Post Operativo',
+                'Diligencias',
+                'Juicio Oral'
+            ],
+            'Antropólogo': [
+                'Obtención de muestras de cotejo',
+                'Diligencias de reconstrucción de los hechos',
+                'Entrevistas socioculturales (victimas de trata)',
+                'Estudio de restos óseos y análisis de traumatismos',
+                'Juicio Oral',
+                'Asesoramiento a los fiscales'
+            ]
+        };
+
+        // Definir apoyos técnicos por tipo de perito
+        const apoyosPorTipo = {
+            'Informático': [
+                'JORGE SALCEDO ROJAS',
+                'HENRRY JHON ANDIA CANCHI',
+                'MARCO ASTOPILCO MALAGA'
+            ],
+            'Contable': [
+                'NEYRA AYBAR ELTON RUBEN',
+                'NATALI MERCEDES RODRIGUEZ SAAVEDRA',
+                'GINO ARTURO BERROSPI AQUINO',
+                'LUIS ANGEL RODRIGUEZ BRIONES',
+                'ANGELA ROXANA CALDERON BUSTAMANTE'
+            ],
+            'Acústico': [
+                'CESAR TIRADO TELLO',
+                'MANUEL CHRISTIAN FAJARDO TAMAYO',
+                'JOSE ARMANDO ARANGO PONTE'
+            ],
+            'Antropólogo': [
+                'RICHAR APAZA VILCA',
+                'LOURDES EDITH MOZO CASTILLO',
+                'JENNY SHIRLEY VEGUSTTI CHAMA',
+                'ULDA ORIUNDO CUADROS'
+            ]
+        };
+
+/**
+         * Al cambiar el tipo de perito, cargar peritos, actividades y apoyos técnicos
          */
         document.getElementById('tipo_perito').addEventListener('change', function() {
             const tipoSeleccionado = this.value;
             const selectPerito = document.getElementById('perito_id');
+            const selectActividad = document.getElementById('tipo_actividad');
+            const selectApoyo = document.getElementById('apoyo_tecnico');
             
-            // Limpiar opciones actuales
+            // Limpiar opciones actuales de peritos
             selectPerito.innerHTML = '<option value="">Seleccione un perito</option>';
             
-            if (tipoSeleccionado && peritosPorTipo[tipoSeleccionado]) {
-                // Habilitar el select
-                selectPerito.disabled = false;
-                selectPerito.classList.remove('bg-gray-100');
+            // Limpiar opciones actuales de actividades
+            selectActividad.innerHTML = '<option value="">Seleccione tipo de actividad</option>';
+            
+            // Limpiar opciones actuales de apoyo técnico
+            selectApoyo.innerHTML = '<option value="">Sin apoyo técnico</option>';
+            
+            if (tipoSeleccionado) {
+                // ==================== PERITOS ====================
+                if (peritosPorTipo[tipoSeleccionado]) {
+                    selectPerito.disabled = false;
+                    selectPerito.classList.remove('bg-gray-100');
+                    
+                    peritosPorTipo[tipoSeleccionado].forEach(perito => {
+                        const option = document.createElement('option');
+                        option.value = perito.id;
+                        option.textContent = perito.nombre;
+                        selectPerito.appendChild(option);
+                    });
+                }
                 
-                // Agregar peritos del tipo seleccionado
-                peritosPorTipo[tipoSeleccionado].forEach(perito => {
-                    const option = document.createElement('option');
-                    option.value = perito.id;
-                    option.textContent = perito.nombre;
-                    selectPerito.appendChild(option);
-                });
+                // ==================== ACTIVIDADES ====================
+                if (actividadesPorTipo[tipoSeleccionado]) {
+                    selectActividad.disabled = false;
+                    selectActividad.classList.remove('bg-gray-100');
+                    
+                    actividadesPorTipo[tipoSeleccionado].forEach(actividad => {
+                        const option = document.createElement('option');
+                        option.value = actividad;
+                        option.textContent = actividad;
+                        selectActividad.appendChild(option);
+                    });
+                } else {
+                    selectActividad.disabled = true;
+                    selectActividad.classList.add('bg-gray-100');
+                }
+                
+                // ==================== APOYO TÉCNICO ====================
+                if (apoyosPorTipo[tipoSeleccionado]) {
+                    selectApoyo.disabled = false;
+                    selectApoyo.classList.remove('bg-gray-100');
+                    
+                    apoyosPorTipo[tipoSeleccionado].forEach(apoyo => {
+                        const option = document.createElement('option');
+                        option.value = apoyo;
+                        option.textContent = apoyo;
+                        selectApoyo.appendChild(option);
+                    });
+                } else {
+                    selectApoyo.disabled = true;
+                    selectApoyo.classList.add('bg-gray-100');
+                }
             } else {
                 selectPerito.disabled = true;
                 selectPerito.classList.add('bg-gray-100');
+                selectActividad.disabled = true;
+                selectActividad.classList.add('bg-gray-100');
+                selectApoyo.disabled = true;
+                selectApoyo.classList.add('bg-gray-100');
             }
         });
+
+
 
         /**
          * Verificar disponibilidad del perito cuando se seleccionan fechas
@@ -535,6 +673,8 @@
                 expediente: document.getElementById('expediente').value,
                 dependencia: document.getElementById('dependencia').value,
                 tipo_perito: document.getElementById('tipo_perito').value,
+                tipo_actividad: document.getElementById('tipo_actividad').value,  // ← NUEVO
+                apoyo_tecnico: document.getElementById('apoyo_tecnico').value,  // ← NUEVO
                 carpeta_fiscal: document.getElementById('carpeta_fiscal').value,
                 hoja_envio_designacion: document.getElementById('hoja_envio_designacion').value,
                 observaciones: document.getElementById('observaciones').value,
@@ -548,7 +688,7 @@
             };
             
             // Validar campos requeridos
-            if (!formData.perito_id || !formData.fecha_inicio || !formData.fecha_fin) {
+            if (!formData.perito_id || !formData.tipo_actividad || !formData.fecha_inicio || !formData.fecha_fin) {
                 mostrarAlerta('error', 'Por favor complete todos los campos requeridos (*)');
                 return;
             }
@@ -647,7 +787,12 @@
             document.getElementById('formNuevaAsignacion').reset();
             document.getElementById('perito_id').disabled = true;
             document.getElementById('perito_id').classList.add('bg-gray-100');
+            document.getElementById('tipo_actividad').disabled = true;
+            document.getElementById('tipo_actividad').classList.add('bg-gray-100');
+            document.getElementById('apoyo_tecnico').disabled = true;  // ← NUEVO
+            document.getElementById('apoyo_tecnico').classList.add('bg-gray-100');  // ← NUEVO
             document.getElementById('alertaDisponibilidad').classList.add('hidden');
+            
             // Limpiar archivos adjuntos
             archivosAcumulados = [];
             document.getElementById('archivos_adjuntos_temp').value = '';

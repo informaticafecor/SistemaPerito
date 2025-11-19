@@ -445,7 +445,8 @@
 
         /**
          * Ver historial de asignaciones de un perito
-         */
+        */
+
         function verHistorial(peritoId, peritoNombre) {
             document.getElementById('tituloHistorial').innerHTML = `
                 <i class="fas fa-history mr-2"></i>Historial de ${peritoNombre}
@@ -472,6 +473,7 @@
                         enProceso: asignaciones.filter(a => a.estado === 'En Proceso').length,
                         completados: asignaciones.filter(a => a.estado === 'Completado').length
                     };
+                    
 
                     // Mostrar estadísticas
                     document.getElementById('statsPerito').innerHTML = `
@@ -491,6 +493,8 @@
                             <p class="text-sm text-gray-600 font-semibold">Completados</p>
                             <p class="text-3xl font-bold text-green-600">${stats.completados}</p>
                         </div>
+
+
                     `;
 
                     // Mostrar historial
@@ -563,7 +567,6 @@
                     `;
                 });
         }
-
         /**
          * Ver calendario del perito (redirigir a página de calendario con filtro)
          */

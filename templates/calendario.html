@@ -433,8 +433,13 @@
                 asignacionesDia.slice(0, maxMostrar).forEach(asignacion => {
                     const evento = document.createElement('div');
                     evento.className = `evento-perito ${getTipoClase(asignacion.tipo_perito)}`;
-                    evento.textContent = `${asignacion.perito_nombre?.split(' ')[0] || 'Sin nombre'}: ${asignacion.expediente || 'S/E'}`;
-                    evento.title = `${asignacion.perito_nombre}\n${asignacion.observaciones || ''}`;
+                    evento.innerHTML = `
+                        <div style="font-weight: bold;">${asignacion.perito_nombre?.split(' ')[0] || 'Sin nombre'}</div>
+                        <div style="font-size: 10px;">${asignacion.expediente || 'S/E'}</div>
+                        <div style="font-size: 9px;">📍 ${asignacion.dependencia || 'Sin dep.'}</div>
+                    `;
+
+                    evento.title = `${asignacion.perito_nombre}\n${asignacion.expediente || 'Sin expediente'}\n📍 ${asignacion.dependencia || 'Sin dependencia'}`;
                     evento.onclick = () => verDetalleAsignacion(asignacion.id);
                     celda.appendChild(evento);
                 });
@@ -638,6 +643,10 @@
             document.getElementById('modalDia').classList.remove('hidden');
         }
 
+
+        //--------------------------------------------------------------------------------------------------------------------------
+        //COMENZANDO AGREGAR DE CERO
+
         /**
          * Ver detalle completo de una asignación
          */
@@ -670,6 +679,40 @@
                                 <p class="text-gray-800">${data.dependencia || '-'}</p>
                             </div>
                             
+
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Dependencia:</label>
+                                <p class="text-gray-800">
+                                    <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-semibold">
+                                        ${data.dependencia || '-'}
+                                    </span>
+                                </p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Tipo de Actividad:</label>
+                                <p class="text-gray-800">
+                                    <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold">
+                                        ${data.tipo_actividad || '-'}
+                                    </span>
+                                </p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Hoja de Envío de Designación:</label>
+                                <p class="text-gray-800">${data.hoja_envio_designacion || '-'}</p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Apoyo Técnico:</label>
+                                <p class="text-gray-800">
+                                    ${data.apoyo_tecnico ? 
+                                        '<span class="px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-sm font-semibold">' + data.apoyo_tecnico + '</span>' : 
+                                        '<span class="text-gray-400">Sin apoyo técnico</span>'
+                                    }
+                                </p>
+                            </div>
+
                             <div>
                                 <label class="text-sm font-semibold text-gray-600">Tipo de Perito:</label>
                                 <p class="text-gray-800">${data.tipo_perito || '-'}</p>

@@ -145,6 +145,24 @@ def init_db():
         print("✅ Columna 'hoja_envio_designacion' agregada a la tabla asignaciones")
     except sqlite3.OperationalError:
         print("ℹ️ Columna 'hoja_envio_designacion' ya existe")
+
+    # Agregar columna para tipo de actividad si no existe
+    try:
+        cursor.execute('ALTER TABLE asignaciones ADD COLUMN tipo_actividad TEXT')
+        conn.commit()
+        print("✅ Columna 'tipo_actividad' agregada a la tabla asignaciones")
+    except sqlite3.OperationalError:
+        print("ℹ️ Columna 'tipo_actividad' ya existe")
+
+    # Agregar columna para apoyo técnico si no existe
+    try:
+        cursor.execute('ALTER TABLE asignaciones ADD COLUMN apoyo_tecnico TEXT')
+        conn.commit()
+        print("✅ Columna 'apoyo_tecnico' agregada a la tabla asignaciones")
+    except sqlite3.OperationalError:
+        print("ℹ️ Columna 'apoyo_tecnico' ya existe")
+
+
     
     conn.close()
 
@@ -272,8 +290,8 @@ def index():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     
-    # Obtener estadísticas generales
-    cursor.execute('SELECT COUNT(*) FROM asignaciones')
+    # Obtener estadísticas generales (EXCLUYENDO cancelados del total)
+    cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado != "Cancelado"')
     total_asignaciones = cursor.fetchone()[0]
     
     cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Pendiente"')
@@ -284,6 +302,9 @@ def index():
     
     cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Completado"')
     completados = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Cancelado"')
+    cancelados = cursor.fetchone()[0]
     
     # Obtener asignaciones recientes (últimas 10)
     cursor.execute('''
@@ -323,6 +344,7 @@ def index():
                          pendientes=pendientes,
                          en_proceso=en_proceso,
                          completados=completados,
+                         cancelados=cancelados,
                          asignaciones=asignaciones_recientes)
 
 @app.route('/nuevo')
@@ -459,6 +481,8 @@ def get_asignaciones():
             'expediente': row['expediente'],
             'dependencia': row['dependencia'],
             'tipo_perito': row['tipo_perito'],
+            'tipo_actividad': row['tipo_actividad'],  # ← NUEVO
+            'apoyo_tecnico': row['apoyo_tecnico'],  # ← NUEVO
             'carpeta_fiscal': row['carpeta_fiscal'],
             'hoja_envio_designacion': row['hoja_envio_designacion'],  # ← NUEVO
             'observaciones': row['observaciones'],
@@ -503,6 +527,8 @@ def get_asignacion(id):
             'expediente': row['expediente'],
             'dependencia': row['dependencia'],
             'tipo_perito': row['tipo_perito'],
+            'tipo_actividad': row['tipo_actividad'],  # ← NUEVO
+            'apoyo_tecnico': row['apoyo_tecnico'],  # ← NUEVO
             'carpeta_fiscal': row['carpeta_fiscal'],
             'hoja_envio_designacion': row['hoja_envio_designacion'],  # ← NUEVO
             'observaciones': row['observaciones'],
@@ -553,18 +579,20 @@ def crear_asignacion():
     
     cursor.execute('''
         INSERT INTO asignaciones (
-            hoja_envio, expediente, dependencia, tipo_perito,
+            hoja_envio, expediente, dependencia, tipo_perito, tipo_actividad, apoyo_tecnico,
             carpeta_fiscal, hoja_envio_designacion, observaciones, lugar, fecha_inicio,
             fecha_fin, perito_asignado, perito_id, desginacion,
             oficio_desplazamiento, estado
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         data.get('hoja_envio', ''),
         data.get('expediente', ''),
         data.get('dependencia', ''),
         data.get('tipo_perito', ''),
+        data.get('tipo_actividad', ''),
+        data.get('apoyo_tecnico', ''),  # ← NUEVO
         data.get('carpeta_fiscal', ''),
-        data.get('hoja_envio_designacion', ''),  # ← NUEVO CAMPO
+        data.get('hoja_envio_designacion', ''),
         data.get('observaciones', ''),
         data.get('lugar', ''),
         data['fecha_inicio'],
@@ -619,7 +647,7 @@ def actualizar_asignacion(id):
     valores = []
     
     campos_permitidos = [
-        'hoja_envio', 'expediente', 'dependencia', 'tipo_perito',
+        'hoja_envio', 'expediente', 'dependencia', 'tipo_perito', 'tipo_actividad', 'apoyo_tecnico',
         'carpeta_fiscal', 'hoja_envio_designacion', 'observaciones', 'lugar', 'fecha_inicio',
         'fecha_fin', 'perito_asignado', 'perito_id', 'desginacion',
         'oficio_desplazamiento', 'estado'
@@ -900,9 +928,10 @@ def exportar_excel():
     # Obtener filtros de la query string
     query = '''
         SELECT a.id, a.hoja_envio, a.expediente, a.dependencia, a.tipo_perito,
-               a.carpeta_fiscal, a.hoja_envio_designacion, a.observaciones, a.lugar, 
-               a.fecha_inicio, a.fecha_fin, a.perito_asignado, a.desginacion, 
-               a.oficio_desplazamiento, a.estado, a.fecha_registro
+               a.tipo_actividad, a.apoyo_tecnico, a.carpeta_fiscal, a.hoja_envio_designacion, 
+               a.observaciones, a.lugar, a.fecha_inicio, a.fecha_fin, 
+               a.perito_asignado, a.desginacion, a.oficio_desplazamiento, 
+               a.estado, a.fecha_registro
         FROM asignaciones a
         WHERE 1=1
     '''
@@ -945,12 +974,12 @@ def exportar_excel():
     
     # Encabezados
     headers = [
-        'ID', 'Hoja Envío', 'Expediente', 'Dependencia', 'Tipo Perito',
+        'ID', 'Hoja Envío', 'Expediente', 'Dependencia', 'Tipo Perito', 'Tipo Actividad', 'Apoyo Técnico',
         'Carpeta Fiscal', 'Hoja Envío Designación', 'Observaciones', 'Lugar', 'Fecha Inicio',
         'Fecha Fin', 'Perito Asignado', 'Designación', 'Oficio Desplazamiento',
         'Estado', 'Fecha Registro'
     ]
-    
+
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = header_font
@@ -960,7 +989,7 @@ def exportar_excel():
     
     # Datos
     for row_idx, row_data in enumerate(datos, 2):
-        for col_idx, value in enumerate(row_data[:16], 1):
+        for col_idx, value in enumerate(row_data[:18], 1):
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             cell.border = border
             cell.alignment = Alignment(wrap_text=True)

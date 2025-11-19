@@ -151,6 +151,9 @@
             </div>
         </div>
 
+
+
+        
         <!-- Acciones Rápidas -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <a href="/nuevo" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-lg p-6 hover:shadow-xl transition transform hover:scale-105">
@@ -382,6 +385,26 @@
                                 <label class="text-sm font-semibold text-gray-600">Tipo de Perito:</label>
                                 <p class="text-gray-800">${data.tipo_perito || '-'}</p>
                             </div>
+
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Tipo de Actividad:</label>
+                                <p class="text-gray-800">
+                                    <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold">
+                                        ${data.tipo_actividad || '-'}
+                                    </span>
+                                </p>
+                            </div>
+
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Apoyo Técnico:</label>
+                                <p class="text-gray-800">
+                                    ${data.apoyo_tecnico ? 
+                                        '<span class="px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-sm font-semibold">' + data.apoyo_tecnico + '</span>' : 
+                                        '<span class="text-gray-400">Sin apoyo técnico</span>'
+                                    }
+                                </p>
+                            </div>
+
                             
                             <div class="col-span-2">
                                 <label class="text-sm font-semibold text-gray-600">Carpeta Fiscal:</label>

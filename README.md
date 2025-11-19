@@ -550,3 +550,192 @@ cp database.db database_backup.db    # Linux/Mac
 **¡Gracias por usar SistemaPerito! 🎉**
 
 Si este proyecto te fue útil, considera darle una ⭐ en GitHub.
+
+
+
+
+📊 ESTRUCTURA DE BASE DE DATOS PROFESIONAL
+
+
+1️⃣ TABLA: peritos
+   - id
+   - nombre_completo
+   - tipo (Informático, Acústico, Antropólogo, Contable)
+   - email (opcional)
+   - telefono (opcional)
+   - estado (Activo/Inactivo)
+   - foto_perfil (opcional)
+
+2️⃣ TABLA: asignaciones
+   - id
+   - numero_oficio
+   - expediente
+   - dependencia
+   - tipo_perito
+   - perito_id (relación con tabla peritos)
+   - carpeta_fiscal
+   - observaciones
+   - lugar_completo
+   - fecha_inicio
+   - fecha_fin
+   - perito_asignado
+   - desginacion
+   - oficio_desplazamiento
+   - estado (Pendiente/En Proceso/Completado/Cancelado)
+   - fecha_registro
+   - hora_envio (dato de tu Excel)
+
+3️⃣ TABLA: historial (para auditoría)
+   - id
+   - asignacion_id
+   - accion (Creado/Modificado/Completado)
+   - usuario
+   - fecha_hora
+   - detalles
+```
+
+---
+
+## 🎯 FUNCIONALIDADES DINÁMICAS
+
+### **Panel Principal con Cards Informativos:**
+```
+┌──────────────┬──────────────┬──────────────┐
+│ 📊 Total     │ 🟢 Disponibles│ 🔴 Ocupados │
+│ Asignaciones │   8 Peritos   │  3 Peritos  │
+│     124      │               │             │
+└──────────────┴──────────────┴──────────────┘
+
+┌──────────────────────────────────────────┐
+│ 📅 Asignaciones esta semana: 12          │
+│ ⏰ Próximas a vencer: 3                  │
+│ ✅ Completadas este mes: 45              │
+└──────────────────────────────────────────┘
+```
+
+### **Formulario Inteligente de Registro:**
+```
+1. Seleccionas TIPO de perito
+   ↓
+2. Sistema muestra solo peritos de ese tipo
+   ↓
+3. Seleccionas FECHAS
+   ↓
+4. Sistema valida disponibilidad en TIEMPO REAL
+   ↓
+5. Si hay conflicto → Muestra alternativas
+   ↓
+6. Autocompletado de campos repetitivos
+```
+
+### **Validaciones Automáticas:**
+```
+✓ No permite fechas pasadas
+✓ Fecha fin debe ser >= fecha inicio
+✓ Alerta si el mismo oficio ya existe
+✓ Detecta si el perito ya está asignado
+✓ Calcula automáticamente días de asignación
+✓ Formato correcto de oficios
+```
+
+---
+
+## 📱 DISEÑO RESPONSIVE
+```
+💻 En computadora:
+   - Vista de tabla completa
+   - Múltiples columnas
+   - Filtros laterales
+
+📱 Si accedes desde celular (futuro):
+   - Cards individuales
+   - Menú hamburguesa
+   - Vista simplificada
+```
+
+---
+
+## 📤 EXPORTACIÓN AVANZADA
+```
+📊 Exportar a Excel:
+   - Con filtros aplicados
+   - Formato profesional
+   - Colores y estilos
+   - Gráficos automáticos
+
+📄 Exportar a PDF:
+   - Reporte por perito
+   - Reporte por fechas
+   - Estadísticas visuales
+   - Logo personalizable
+```
+
+---
+
+## 🔐 EXTRAS PROFESIONALES
+
+### **1. Sistema de Estados:**
+```
+Asignación:
+├── 📝 Pendiente (recién creada)
+├── 🚗 En viaje (perito desplazándose)
+├── 🔍 En proceso (realizando peritaje)
+├── ✅ Completada (trabajo finalizado)
+└── ❌ Cancelada (por algún motivo)
+```
+
+### **2. Notas y Observaciones:**
+```
+- Campo de texto libre para cada asignación
+- Historial de modificaciones
+- Adjuntar archivos (opcional - fase 2)
+```
+
+### **3. Reportes Automáticos:**
+```
+📈 Reporte mensual:
+   - Peritos más asignados
+   - Lugares más frecuentes
+   - Tipos de peritaje más comunes
+   - Tiempo promedio por asignación
+```
+
+---
+
+## 🎨 PALETA DE COLORES SUGERIDA
+```
+Profesional y Moderna:
+
+#1E40AF - Azul Principal (botones, headers)
+#10B981 - Verde (disponible, éxito)
+#EF4444 - Rojo (ocupado, alertas)
+#F59E0B - Amarillo (advertencias)
+#6B7280 - Gris (textos secundarios)
+#F3F4F6 - Fondo claro
+#FFFFFF - Blanco (cards)
+```
+
+---
+
+## 📋 ESTRUCTURA DE CARPETAS
+```
+sistema-peritos/
+├── app.py                 (Servidor Flask)
+├── database.db            (Base de datos SQLite)
+├── requirements.txt       (Dependencias Python)
+├── README.md             (Instrucciones de uso)
+├── templates/
+│   ├── index.html        (Dashboard)
+│   ├── nuevo.html        (Registrar asignación)
+│   ├── buscar.html       (Búsqueda avanzada)
+│   ├── calendario.html   (Vista calendario)
+│   ├── peritos.html      (Gestión de peritos)
+│   └── reportes.html     (Estadísticas)
+├── static/
+│   ├── css/
+│   │   └── style.css     (Estilos personalizados)
+│   ├── js/
+│   │   └── app.js        (Funciones JavaScript)
+│   └── images/
+│       └── logo.png
+└── exports/              (Carpeta para archivos exportados)
