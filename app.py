@@ -19,10 +19,29 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
+from werkzeug.utils import secure_filename
+
+
 
 # Inicializar aplicación Flask
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False  # Para caracteres especiales en español
+
+# Configuración para archivos
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB máximo por archivo
+
+# Crear carpeta si no existe
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    """
+    Verifica si el archivo tiene una extensión permitida
+    """
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 # ============================================================================
 # CONFIGURACIÓN DE BASE DE DATOS
@@ -110,10 +129,26 @@ def init_db():
             peritos_iniciales
         )
         conn.commit()
+
+    # Agregar columna para archivos adjuntos si no existe
+    try:
+        cursor.execute('ALTER TABLE asignaciones ADD COLUMN archivos_adjuntos TEXT')
+        conn.commit()
+        print("✅ Columna 'archivos_adjuntos' agregada a la tabla asignaciones")
+    except sqlite3.OperationalError:
+        print("ℹ️ Columna 'archivos_adjuntos' ya existe")
+        
+    # Agregar columna para hoja de envío de designación si no existe
+    try:
+        cursor.execute('ALTER TABLE asignaciones ADD COLUMN hoja_envio_designacion TEXT')
+        conn.commit()
+        print("✅ Columna 'hoja_envio_designacion' agregada a la tabla asignaciones")
+    except sqlite3.OperationalError:
+        print("ℹ️ Columna 'hoja_envio_designacion' ya existe")
     
     conn.close()
 
-
+    #-----------------------------------------------------------------------------------------------------------
 def actualizar_estados_automaticos():
     """
     Actualiza automáticamente los estados de las asignaciones según las fechas
@@ -266,6 +301,8 @@ def index():
     
     asignaciones_recientes = []
     for row in cursor.fetchall():
+        # row[16] es el nombre_completo del perito (última columna del SELECT)
+        # row[10] es perito_asignado
         asignaciones_recientes.append({
             'id': row[0],
             'hoja_envio': row[1],
@@ -274,7 +311,7 @@ def index():
             'tipo_perito': row[4],
             'fecha_inicio': row[8],
             'fecha_fin': row[9],
-            'perito': row[16] or row[10],  # nombre_completo o perito_asignado
+            'perito': row[16] if row[16] else row[10],  # nombre_completo o perito_asignado
             'estado': row[14],
             'lugar': row[7]
         })
@@ -370,6 +407,8 @@ def reportes():
 # API ENDPOINTS
 # ============================================================================
 
+
+
 @app.route('/api/asignaciones', methods=['GET'])
 def get_asignaciones():
     """
@@ -377,6 +416,7 @@ def get_asignaciones():
     Query params: estado, perito_id, fecha_desde, fecha_hasta
     """
     conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row  # ← ESTO ES CLAVE
     cursor = conn.cursor()
     
     # Construir query con filtros
@@ -414,27 +454,26 @@ def get_asignaciones():
     asignaciones = []
     for row in cursor.fetchall():
         asignaciones.append({
-            'id': row[0],
-            'hoja_envio': row[1],
-            'expediente': row[2],
-            'dependencia': row[3],
-            'tipo_perito': row[4],
-            'carpeta_fiscal': row[5],
-            'observaciones': row[6],
-            'lugar': row[7],
-            'fecha_inicio': row[8],
-            'fecha_fin': row[9],
-            'perito_asignado': row[10],
-            'desginacion': row[12],
-            'oficio_desplazamiento': row[13],
-            'estado': row[14],
-            'perito_nombre': row[16]
+            'id': row['id'],
+            'hoja_envio': row['hoja_envio'],
+            'expediente': row['expediente'],
+            'dependencia': row['dependencia'],
+            'tipo_perito': row['tipo_perito'],
+            'carpeta_fiscal': row['carpeta_fiscal'],
+            'hoja_envio_designacion': row['hoja_envio_designacion'],  # ← NUEVO
+            'observaciones': row['observaciones'],
+            'lugar': row['lugar'],
+            'fecha_inicio': row['fecha_inicio'],
+            'fecha_fin': row['fecha_fin'],
+            'perito_asignado': row['perito_asignado'],
+            'desginacion': row['desginacion'],
+            'oficio_desplazamiento': row['oficio_desplazamiento'],
+            'estado': row['estado'],
+            'perito_nombre': row['nombre_completo']
         })
     
     conn.close()
     return jsonify(asignaciones)
-
-
 
 
 
@@ -444,6 +483,7 @@ def get_asignacion(id):
     Obtiene una asignación específica por ID
     """
     conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row  # ← ESTO ES CLAVE
     cursor = conn.cursor()
     
     cursor.execute('''
@@ -458,26 +498,30 @@ def get_asignacion(id):
     
     if row:
         asignacion = {
-            'id': row[0],
-            'hoja_envio': row[1],
-            'expediente': row[2],
-            'dependencia': row[3],
-            'tipo_perito': row[4],
-            'carpeta_fiscal': row[5],
-            'observaciones': row[6],
-            'lugar': row[7],
-            'fecha_inicio': row[8],
-            'fecha_fin': row[9],
-            'perito_asignado': row[10],
-            'perito_id': row[11],
-            'desginacion': row[12],
-            'oficio_desplazamiento': row[13],
-            'estado': row[14],
-            'perito_nombre': row[16]
+            'id': row['id'],
+            'hoja_envio': row['hoja_envio'],
+            'expediente': row['expediente'],
+            'dependencia': row['dependencia'],
+            'tipo_perito': row['tipo_perito'],
+            'carpeta_fiscal': row['carpeta_fiscal'],
+            'hoja_envio_designacion': row['hoja_envio_designacion'],  # ← NUEVO
+            'observaciones': row['observaciones'],
+            'lugar': row['lugar'],
+            'fecha_inicio': row['fecha_inicio'],
+            'fecha_fin': row['fecha_fin'],
+            'perito_asignado': row['perito_asignado'],
+            'perito_id': row['perito_id'],
+            'desginacion': row['desginacion'],
+            'oficio_desplazamiento': row['oficio_desplazamiento'],
+            'estado': row['estado'],
+            'perito_nombre': row['nombre_completo'] if row['nombre_completo'] else row['perito_asignado']
         }
         return jsonify(asignacion)
     else:
         return jsonify({'error': 'Asignación no encontrada'}), 404
+
+
+
 
 @app.route('/api/asignacion', methods=['POST'])
 def crear_asignacion():
@@ -510,16 +554,17 @@ def crear_asignacion():
     cursor.execute('''
         INSERT INTO asignaciones (
             hoja_envio, expediente, dependencia, tipo_perito,
-            carpeta_fiscal, observaciones, lugar, fecha_inicio,
+            carpeta_fiscal, hoja_envio_designacion, observaciones, lugar, fecha_inicio,
             fecha_fin, perito_asignado, perito_id, desginacion,
             oficio_desplazamiento, estado
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         data.get('hoja_envio', ''),
         data.get('expediente', ''),
         data.get('dependencia', ''),
         data.get('tipo_perito', ''),
         data.get('carpeta_fiscal', ''),
+        data.get('hoja_envio_designacion', ''),  # ← NUEVO CAMPO
         data.get('observaciones', ''),
         data.get('lugar', ''),
         data['fecha_inicio'],
@@ -575,7 +620,7 @@ def actualizar_asignacion(id):
     
     campos_permitidos = [
         'hoja_envio', 'expediente', 'dependencia', 'tipo_perito',
-        'carpeta_fiscal', 'observaciones', 'lugar', 'fecha_inicio',
+        'carpeta_fiscal', 'hoja_envio_designacion', 'observaciones', 'lugar', 'fecha_inicio',
         'fecha_fin', 'perito_asignado', 'perito_id', 'desginacion',
         'oficio_desplazamiento', 'estado'
     ]
@@ -810,8 +855,16 @@ def buscar_asignaciones():
     
     cursor.execute(query, params)
     
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # ... código del query ...
+    
     resultados = []
     for row in cursor.fetchall():
+        # Calcular índice correcto: nombre_completo es la última columna
+        # Total de columnas en asignaciones: 17 (con archivos_adjuntos)
+        # nombre_completo es el índice 17
         resultados.append({
             'id': row[0],
             'hoja_envio': row[1],
@@ -826,7 +879,7 @@ def buscar_asignaciones():
             'perito_asignado': row[10],
             'desginacion': row[12],
             'estado': row[14],
-            'perito_nombre': row[16]
+            'perito_nombre': row[17] if len(row) > 17 else row[10]  # nombre_completo o perito_asignado
         })
     
     conn.close()
@@ -846,9 +899,11 @@ def exportar_excel():
     
     # Obtener filtros de la query string
     query = '''
-        SELECT a.*, p.nombre_completo
+        SELECT a.id, a.hoja_envio, a.expediente, a.dependencia, a.tipo_perito,
+               a.carpeta_fiscal, a.hoja_envio_designacion, a.observaciones, a.lugar, 
+               a.fecha_inicio, a.fecha_fin, a.perito_asignado, a.desginacion, 
+               a.oficio_desplazamiento, a.estado, a.fecha_registro
         FROM asignaciones a
-        LEFT JOIN peritos p ON a.perito_id = p.id
         WHERE 1=1
     '''
     params = []
@@ -891,7 +946,7 @@ def exportar_excel():
     # Encabezados
     headers = [
         'ID', 'Hoja Envío', 'Expediente', 'Dependencia', 'Tipo Perito',
-        'Carpeta Fiscal', 'Observaciones', 'Lugar', 'Fecha Inicio',
+        'Carpeta Fiscal', 'Hoja Envío Designación', 'Observaciones', 'Lugar', 'Fecha Inicio',
         'Fecha Fin', 'Perito Asignado', 'Designación', 'Oficio Desplazamiento',
         'Estado', 'Fecha Registro'
     ]
@@ -905,7 +960,7 @@ def exportar_excel():
     
     # Datos
     for row_idx, row_data in enumerate(datos, 2):
-        for col_idx, value in enumerate(row_data[:15], 1):
+        for col_idx, value in enumerate(row_data[:16], 1):
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             cell.border = border
             cell.alignment = Alignment(wrap_text=True)
@@ -1033,6 +1088,178 @@ def exportar_pdf():
     doc.build(elements)
     
     return send_file(filepath, as_attachment=True, download_name=filename)
+
+
+# ============================================
+# ENDPOINTS PARA MANEJO DE ARCHIVOS
+# ============================================
+
+@app.route('/api/asignacion/<int:id>/subir-archivos', methods=['POST'])
+def subir_archivos(id):
+    """
+    Sube múltiples archivos adjuntos a una asignación
+    """
+    # Verificar que la asignación existe
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    # Obtener solo el campo de archivos adjuntos
+    cursor.execute('SELECT archivos_adjuntos FROM asignaciones WHERE id = ?', (id,))
+    resultado = cursor.fetchone()
+    
+    if not resultado:
+        conn.close()
+        return jsonify({'error': 'Asignación no encontrada'}), 404
+    
+    # Verificar que se enviaron archivos
+    if 'archivos' not in request.files:
+        conn.close()
+        return jsonify({'error': 'No se enviaron archivos'}), 400
+    
+    archivos = request.files.getlist('archivos')
+    archivos_guardados = []
+    errores = []
+    
+    # Obtener archivos existentes
+    archivos_existentes = []
+    if resultado[0]:  # resultado[0] es archivos_adjuntos
+        try:
+            archivos_existentes = json.loads(resultado[0])
+        except:
+            archivos_existentes = []
+    
+    # Procesar cada archivo
+    for archivo in archivos:
+        if archivo.filename == '':
+            continue
+        
+        if archivo and allowed_file(archivo.filename):
+            # Crear nombre seguro con timestamp
+            filename = secure_filename(archivo.filename)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')  # Agregar microsegundos
+            extension = filename.rsplit('.', 1)[1].lower()
+            nombre_base = filename.rsplit('.', 1)[0][:30]  # Limitar longitud
+            filename_final = f"{id}_{timestamp}_{nombre_base}.{extension}"
+            
+            # Guardar archivo físico
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename_final)
+            archivo.save(filepath)
+            
+            # Agregar a la lista
+            archivos_guardados.append({
+                'nombre_original': archivo.filename,
+                'nombre_guardado': filename_final,
+                'fecha_subida': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'tamano': os.path.getsize(filepath)
+            })
+        else:
+            errores.append(f"Archivo '{archivo.filename}' no permitido")
+    
+    # Combinar archivos nuevos con existentes
+    todos_archivos = archivos_existentes + archivos_guardados
+    
+    # Guardar en base de datos
+    cursor.execute(
+        'UPDATE asignaciones SET archivos_adjuntos = ? WHERE id = ?',
+        (json.dumps(todos_archivos), id)
+    )
+    conn.commit()
+    conn.close()
+    
+    # Registrar en historial
+    registrar_historial(
+        id, 
+        'Archivos Adjuntos', 
+        f'Se agregaron {len(archivos_guardados)} archivo(s)'
+    )
+    
+    return jsonify({
+        'success': True,
+        'archivos_guardados': len(archivos_guardados),
+        'archivos': archivos_guardados,
+        'errores': errores
+    })
+
+
+@app.route('/api/asignacion/<int:id>/archivos', methods=['GET'])
+def listar_archivos(id):
+    """
+    Lista todos los archivos de una asignación
+    """
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT archivos_adjuntos FROM asignaciones WHERE id = ?', (id,))
+    resultado = cursor.fetchone()
+    conn.close()
+    
+    if not resultado:
+        return jsonify({'error': 'Asignación no encontrada'}), 404
+    
+    archivos = []
+    if resultado[0]:
+        try:
+            archivos = json.loads(resultado[0])
+        except:
+            archivos = []
+    
+    return jsonify({'archivos': archivos})
+
+@app.route('/api/asignacion/<int:id>/archivo/<filename>', methods=['DELETE'])
+def eliminar_archivo(id, filename):
+    """
+    Elimina un archivo adjunto
+    """
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT archivos_adjuntos FROM asignaciones WHERE id = ?', (id,))
+    resultado = cursor.fetchone()
+    
+    if not resultado:
+        conn.close()
+        return jsonify({'error': 'Asignación no encontrada'}), 404
+    
+    archivos = []
+    if resultado[0]:
+        try:
+            archivos = json.loads(resultado[0])
+        except:
+            archivos = []
+    
+    # Filtrar el archivo a eliminar
+    archivos_filtrados = [a for a in archivos if a['nombre_guardado'] != filename]
+    
+    # Eliminar archivo físico
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    if os.path.exists(filepath):
+        os.remove(filepath)
+    
+    # Actualizar base de datos
+    cursor.execute(
+        'UPDATE asignaciones SET archivos_adjuntos = ? WHERE id = ?',
+        (json.dumps(archivos_filtrados), id)
+    )
+    conn.commit()
+    conn.close()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Archivo eliminado correctamente'
+    })
+
+@app.route('/uploads/<filename>')
+def descargar_archivo(filename):
+    """
+    Descarga un archivo adjunto
+    """
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    
+    if not os.path.exists(filepath):
+        return jsonify({'error': 'Archivo no encontrado'}), 404
+    
+    return send_file(filepath, as_attachment=True)
+
 
 # ============================================================================
 # INICIALIZACIÓN Y EJECUCIÓN

@@ -387,6 +387,12 @@
                                 <label class="text-sm font-semibold text-gray-600">Carpeta Fiscal:</label>
                                 <p class="text-gray-800">${data.carpeta_fiscal || '-'}</p>
                             </div>
+
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Hoja de Envío de Designación:</label>
+                                <p class="text-gray-800">${data.hoja_envio_designacion || '-'}</p>
+                            </div>
+
                             
                             <div class="col-span-2 bg-green-50 p-4 rounded-lg my-4">
                                 <h4 class="text-lg font-bold text-green-900 mb-2">
@@ -456,6 +462,18 @@
                                     ${getEstadoBadge(data.estado)}
                                 </p>
                             </div>
+
+                            <div class="col-span-2 bg-red-50 p-4 rounded-lg my-4">
+                                <h4 class="text-lg font-bold text-red-900 mb-2">
+                                    <i class="fas fa-file-pdf mr-2"></i>Archivos Adjuntos
+                                </h4>
+                            </div>
+                            
+                            <div class="col-span-2" id="seccionArchivos${data.id}">
+                                <!-- Se cargará dinámicamente -->
+                            </div>
+
+
                         </div>
                         
                         <div class="mt-6 flex justify-end space-x-3">
@@ -469,7 +487,7 @@
                             </button>
                         </div>
                     `;
-                    
+                    cargarArchivosAdjuntos(data.id);
                     document.getElementById('contenidoDetalle').innerHTML = contenido;
                 })
                 .catch(error => {
@@ -567,13 +585,248 @@
         }
 
 
+        /**
+         * Cargar y mostrar archivos adjuntos
+         */
+        function cargarArchivosAdjuntos(id) {
+            fetch(`/api/asignacion/${id}/archivos`)
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById(`seccionArchivos${id}`);
+                    
+                    if (!data.archivos || data.archivos.length === 0) {
+                        container.innerHTML = `
+                            <div class="text-center py-4 bg-gray-50 rounded-lg">
+                                <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i>
+                                <p class="text-gray-500 text-sm">No hay archivos adjuntos</p>
+                                <button onclick="abrirSubirArchivos(${id})" 
+                                        class="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                                    <i class="fas fa-upload mr-2"></i>Subir Archivos
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        let html = '<div class="space-y-2">';
+                        
+                        data.archivos.forEach(archivo => {
+                            const tamanoMB = (archivo.tamano / 1024 / 1024).toFixed(2);
+                            html += `
+                                <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg hover:bg-gray-100">
+                                    <div class="flex items-center space-x-3">
+                                        <i class="fas fa-file-pdf text-red-500 text-2xl"></i>
+                                        <div>
+                                            <p class="font-semibold text-gray-800">${archivo.nombre_original}</p>
+                                            <p class="text-xs text-gray-500">${tamanoMB} MB - ${archivo.fecha_subida}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <a href="/uploads/${archivo.nombre_guardado}" 
+                                           target="_blank"
+                                           class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                        <button onclick="eliminarArchivoAdjunto(${id}, '${archivo.nombre_guardado}')"
+                                                class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += `
+                            </div>
+                            <button onclick="abrirSubirArchivos(${id})" 
+                                    class="mt-4 w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                                <i class="fas fa-plus mr-2"></i>Agregar Más Archivos
+                            </button>
+                        `;
+                        
+                        container.innerHTML = html;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        /**
+         * Abrir modal para subir archivos
+         */
+        function abrirSubirArchivos(id) {
+            const html = `
+                <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" id="modalSubirArchivos">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                        <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4 flex justify-between items-center">
+                            <h3 class="text-xl font-bold text-white">
+                                <i class="fas fa-upload mr-2"></i>Subir Archivos
+                            </h3>
+                            <button onclick="cerrarModalSubirArchivos()" class="text-white hover:text-gray-200">
+                                <i class="fas fa-times text-2xl"></i>
+                            </button>
+                        </div>
+                        <div class="p-6">
+                            <form id="formSubirArchivos" enctype="multipart/form-data">
+                                <div class="mb-4">
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        Selecciona archivos (PDF, DOC, JPG, PNG)
+                                    </label>
+                                    <input type="file" 
+                                           id="inputArchivos" 
+                                           name="archivos" 
+                                           multiple 
+                                           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                                    <p class="text-xs text-gray-500 mt-2">
+                                        Máximo 16 MB por archivo. Puedes seleccionar varios archivos.
+                                    </p>
+                                </div>
+                                
+                                <div id="vistaPrevia" class="mb-4 space-y-2">
+                                    <!-- Vista previa de archivos seleccionados -->
+                                </div>
+                                
+                                <div class="flex justify-end space-x-3">
+                                    <button type="button" 
+                                            onclick="cerrarModalSubirArchivos()" 
+                                            class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                                        Cancelar
+                                    </button>
+                                    <button type="submit" 
+                                            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                        <i class="fas fa-upload mr-2"></i>Subir
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', html);
+            
+            // Vista previa de archivos seleccionados
+            document.getElementById('inputArchivos').addEventListener('change', function(e) {
+                const vistaPrevia = document.getElementById('vistaPrevia');
+                vistaPrevia.innerHTML = '';
+                
+                Array.from(e.target.files).forEach(file => {
+                    const tamanoMB = (file.size / 1024 / 1024).toFixed(2);
+                    vistaPrevia.innerHTML += `
+                        <div class="flex items-center justify-between bg-gray-50 p-2 rounded">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-file text-gray-500"></i>
+                                <span class="text-sm">${file.name}</span>
+                            </div>
+                            <span class="text-xs text-gray-500">${tamanoMB} MB</span>
+                        </div>
+                    `;
+                });
+            });
+            
+            // Manejar envío del formulario
+            document.getElementById('formSubirArchivos').addEventListener('submit', function(e) {
+                e.preventDefault();
+                subirArchivosForm(id);
+            });
+        }
+
+        /**
+         * Subir archivos al servidor
+         */
+        function subirArchivosForm(id) {
+            const formData = new FormData();
+            const inputArchivos = document.getElementById('inputArchivos');
+            
+            if (inputArchivos.files.length === 0) {
+                alert('Por favor selecciona al menos un archivo');
+                return;
+            }
+            
+            // Agregar todos los archivos al FormData
+            Array.from(inputArchivos.files).forEach(file => {
+                formData.append('archivos', file);
+            });
+            
+            // Mostrar indicador de carga
+            const btnSubmit = document.querySelector('#formSubirArchivos button[type="submit"]');
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Subiendo...';
+            
+            // Enviar archivos
+            fetch(`/api/asignacion/${id}/subir-archivos`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`✅ ${data.archivos_guardados} archivo(s) subido(s) correctamente`);
+                    cerrarModalSubirArchivos();
+                    cargarArchivosAdjuntos(id); // Recargar lista
+                    
+                    if (data.errores.length > 0) {
+                        alert('⚠️ Algunos archivos no se pudieron subir:\n' + data.errores.join('\n'));
+                    }
+                } else {
+                    alert('❌ Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error al subir archivos');
+            })
+            .finally(() => {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = '<i class="fas fa-upload mr-2"></i>Subir';
+            });
+        }
+
+        /**
+         * Eliminar archivo adjunto
+         */
+        function eliminarArchivoAdjunto(id, filename) {
+            if (!confirm('¿Estás seguro de eliminar este archivo?')) {
+                return;
+            }
+            
+            fetch(`/api/asignacion/${id}/archivo/${filename}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Archivo eliminado correctamente');
+                    cargarArchivosAdjuntos(id); // Recargar lista
+                } else {
+                    alert('❌ Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error al eliminar archivo');
+            });
+        }
+
+        /**
+         * Cerrar modal de subir archivos
+         */
+        function cerrarModalSubirArchivos() {
+            const modal = document.getElementById('modalSubirArchivos');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
 
         // Cerrar modal al hacer clic fuera de él
         document.getElementById('modalDetalle').addEventListener('click', function(e) {
             if (e.target === this) {
                 cerrarModal();
             }
+
         });
+        //------------------------------------------------------------
     </script>
 </body>
 </html>

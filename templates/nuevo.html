@@ -140,6 +140,18 @@
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                                placeholder="Ej: 06-2025">
                     </div>
+                    <!-- Hoja de Envío de Designación -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-file-signature text-indigo-600 mr-2"></i>Hoja de Envío de Designación
+                        </label>
+                        <input type="text" 
+                               id="hoja_envio_designacion" 
+                               name="hoja_envio_designacion"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                               placeholder="Ej: HED-2025-001234">
+                    </div>
+
                 </div>
 
                 <!-- Sección 2: Selección de Perito -->
@@ -285,6 +297,56 @@
                                placeholder="Ej: OFICIO 007305-2025-FSCN-FECCO">
                     </div>
                 </div>
+
+
+                <!-- Sección 5: Archivos Adjuntos -->
+                <div class="bg-gradient-to-r from-red-700 to-red-600 px-6 py-4">
+                    <h3 class="text-xl font-bold text-white flex items-center">
+                        <i class="fas fa-file-pdf mr-3"></i>Archivos Adjuntos (Opcional)
+                    </h3>
+                </div>
+                
+                <div class="p-6">
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-paperclip text-red-600 mr-2"></i>Agregar Documentos (PDF, DOC, JPG, PNG)
+                        </label>
+                        
+                        <div class="flex space-x-3">
+                            <input type="file" 
+                                   id="archivos_adjuntos_temp" 
+                                   multiple
+                                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                   class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            
+                            <button type="button" 
+                                    onclick="agregarArchivosALista()"
+                                    class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
+                                <i class="fas fa-plus mr-2"></i>Agregar
+                            </button>
+                        </div>
+                        
+                        <p class="text-xs text-gray-500 mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Selecciona uno o varios archivos y haz clic en "Agregar". Puedes repetir el proceso para añadir más archivos.
+                        </p>
+                    </div>
+                    
+                    <!-- Lista de archivos acumulados -->
+                    <div id="listaArchivosAcumulados" class="space-y-2">
+                        <!-- Se llenará dinámicamente -->
+                    </div>
+                    
+                    <!-- Contador de archivos -->
+                    <div id="contadorArchivos" class="hidden mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                        <p class="text-sm font-semibold text-green-800">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            <span id="totalArchivos">0</span> archivo(s) listo(s) para subir
+                        </p>
+                    </div>
+                </div>
+
+
 
                 <!-- Botones de Acción -->
                 <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-4">
@@ -474,6 +536,7 @@
                 dependencia: document.getElementById('dependencia').value,
                 tipo_perito: document.getElementById('tipo_perito').value,
                 carpeta_fiscal: document.getElementById('carpeta_fiscal').value,
+                hoja_envio_designacion: document.getElementById('hoja_envio_designacion').value,
                 observaciones: document.getElementById('observaciones').value,
                 lugar: document.getElementById('lugar').value,
                 fecha_inicio: document.getElementById('fecha_inicio').value,
@@ -495,7 +558,7 @@
             btnGuardar.disabled = true;
             btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Guardando...';
             
-            // Enviar datos al servidor
+            // Primero crear la asignación
             fetch('/api/asignacion', {
                 method: 'POST',
                 headers: {
@@ -506,13 +569,34 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Mostrar modal de éxito
-                    document.getElementById('mensajeExito').innerHTML = 
-                        `La asignación #${data.id} se ha registrado correctamente en el sistema.`;
-                    document.getElementById('modalExito').classList.remove('hidden');
+                    const asignacionId = data.id;
                     
-                    // Limpiar formulario
-                    limpiarFormulario();
+                    // Verificar si hay archivos para subir
+                    if (archivosAcumulados.length > 0) {
+                        // Subir archivos
+                        const formDataArchivos = obtenerArchivosFormData();
+                        
+                        fetch(`/api/asignacion/${asignacionId}/subir-archivos`, {
+                            method: 'POST',
+                            body: formDataArchivos
+                        })
+                        .then(response => response.json())
+                        .then(dataArchivos => {
+                            if (dataArchivos.success) {
+                                mostrarModalExito(asignacionId, dataArchivos.archivos_guardados);
+                            } else {
+                                mostrarModalExito(asignacionId, 0);
+                                console.error('Error al subir archivos:', dataArchivos.error);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            mostrarModalExito(asignacionId, 0);
+                        });
+                    } else {
+                        // No hay archivos, mostrar éxito directamente
+                        mostrarModalExito(asignacionId, 0);
+                    }
                 } else if (data.error) {
                     // Mostrar error
                     mostrarAlerta('error', data.error);
@@ -540,6 +624,23 @@
         });
 
         /**
+         * Mostrar modal de éxito con información de archivos
+         */
+        function mostrarModalExito(asignacionId, cantidadArchivos) {
+            let mensaje = `La asignación #${asignacionId} se ha registrado correctamente.`;
+            if (cantidadArchivos > 0) {
+                mensaje += `<br><br><i class="fas fa-paperclip text-green-600 mr-2"></i>${cantidadArchivos} archivo(s) adjunto(s) correctamente.`;
+            }
+            
+            document.getElementById('mensajeExito').innerHTML = mensaje;
+            document.getElementById('modalExito').classList.remove('hidden');
+            
+            // Limpiar formulario
+            limpiarFormulario();
+        }
+        
+
+        /**
          * Limpiar todos los campos del formulario
          */
         function limpiarFormulario() {
@@ -547,6 +648,10 @@
             document.getElementById('perito_id').disabled = true;
             document.getElementById('perito_id').classList.add('bg-gray-100');
             document.getElementById('alertaDisponibilidad').classList.add('hidden');
+            // Limpiar archivos adjuntos
+            archivosAcumulados = [];
+            document.getElementById('archivos_adjuntos_temp').value = '';
+            actualizarListaArchivos();
         }
 
         /**
@@ -556,6 +661,124 @@
             document.getElementById('modalExito').classList.add('hidden');
         }
 
+
+        // Array global para acumular archivos
+        let archivosAcumulados = [];
+
+        /**
+         * Agregar archivos a la lista acumulada
+         */
+        function agregarArchivosALista() {
+            const input = document.getElementById('archivos_adjuntos_temp');
+            const archivos = input.files;
+            
+            if (archivos.length === 0) {
+                alert('Por favor selecciona al menos un archivo');
+                return;
+            }
+            
+            // Agregar cada archivo al array global
+            Array.from(archivos).forEach(archivo => {
+                // Verificar si el archivo ya existe (por nombre y tamaño)
+                const existe = archivosAcumulados.some(a => 
+                    a.name === archivo.name && a.size === archivo.size
+                );
+                
+                if (!existe) {
+                    archivosAcumulados.push(archivo);
+                }
+            });
+            
+            // Actualizar vista
+            actualizarListaArchivos();
+            
+            // Limpiar input
+            input.value = '';
+            
+            // Mostrar mensaje
+            mostrarAlerta('success', `${archivos.length} archivo(s) agregado(s) a la lista`);
+        }
+
+        /**
+         * Actualizar la vista de archivos acumulados
+         */
+        function actualizarListaArchivos() {
+            const lista = document.getElementById('listaArchivosAcumulados');
+            const contador = document.getElementById('contadorArchivos');
+            const totalSpan = document.getElementById('totalArchivos');
+            
+            if (archivosAcumulados.length === 0) {
+                lista.innerHTML = `
+                    <div class="text-center py-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i>
+                        <p class="text-gray-500 text-sm">No hay archivos agregados</p>
+                    </div>
+                `;
+                contador.classList.add('hidden');
+                return;
+            }
+            
+            // Mostrar contador
+            contador.classList.remove('hidden');
+            totalSpan.textContent = archivosAcumulados.length;
+            
+            // Renderizar lista
+            let html = '<div class="space-y-2"><p class="text-sm font-semibold text-gray-700 mb-2">Archivos listos para subir:</p>';
+            
+            archivosAcumulados.forEach((archivo, index) => {
+                const tamanoMB = (archivo.size / 1024 / 1024).toFixed(2);
+                const icono = archivo.type.includes('pdf') ? 'fa-file-pdf text-red-500' : 
+                             archivo.type.includes('image') ? 'fa-file-image text-blue-500' : 
+                             'fa-file-word text-blue-600';
+                
+                html += `
+                    <div class="flex items-center justify-between bg-blue-50 p-3 rounded-lg border border-blue-200">
+                        <div class="flex items-center space-x-3 flex-1">
+                            <i class="fas ${icono} text-2xl"></i>
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-800 text-sm truncate">${archivo.name}</p>
+                                <p class="text-xs text-gray-500">${tamanoMB} MB</p>
+                            </div>
+                        </div>
+                        <button type="button" 
+                                onclick="eliminarArchivoDeLista(${index})"
+                                class="ml-3 px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-sm"
+                                title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            lista.innerHTML = html;
+        }
+
+        /**
+         * Eliminar un archivo de la lista acumulada
+         */
+        function eliminarArchivoDeLista(index) {
+            if (confirm('¿Eliminar este archivo de la lista?')) {
+                archivosAcumulados.splice(index, 1);
+                actualizarListaArchivos();
+                mostrarAlerta('success', 'Archivo eliminado de la lista');
+            }
+        }
+
+        /**
+         * Obtener todos los archivos como FormData
+         */
+        function obtenerArchivosFormData() {
+            const formData = new FormData();
+            archivosAcumulados.forEach(archivo => {
+                formData.append('archivos', archivo);
+            });
+            return formData;
+        }
+
+
+
+  
         // Establecer fecha mínima como hoy
         // const hoy = new Date().toISOString().split('T')[0];
          //document.getElementById('fecha_inicio').setAttribute('min', hoy);
