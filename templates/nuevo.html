@@ -210,20 +210,40 @@
                     <!-- AGREGNADO NUEVO CODIGO -------------------------------------------------------->
 
                     <!-- Apoyo Técnico (Opcional) -->
-                    <div>
+                    <!-- Apoyo Técnico (Opcional - Múltiple) -->
+                    <div >
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             <i class="fas fa-user-friends text-teal-600 mr-2"></i>Apoyo Técnico (Opcional)
                         </label>
-                        <select id="apoyo_tecnico" 
-                                name="apoyo_tecnico"
-                                disabled
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-gray-100">
-                            <option value="">Sin apoyo técnico</option>
-                        </select>
-                        <p class="text-xs text-gray-500 mt-1">
+                        
+                        <!-- Selector + Botón Agregar -->
+                        <div class="flex space-x-2 mb-3">
+                            <select id="apoyo_tecnico" 
+                                    disabled
+                                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-gray-100">
+                                <option value="">Sin apoyo técnico</option>
+                            </select>
+                            <button type="button" 
+                                    id="btnAgregarApoyo"
+                                    onclick="agregarApoyoTecnico()"
+                                    disabled
+                                    class="px-6 py-2 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition disabled:bg-gray-300 disabled:cursor-not-allowed">
+                                <i class="fas fa-plus mr-2"></i>Agregar
+                            </button>
+                        </div>
+                        
+                        <!-- Lista de apoyos agregados -->
+                        <div id="listaApoyosTecnicos" class="mb-3">
+                            <!-- Se llenará dinámicamente -->
+                        </div>
+                        
+                        <p class="text-xs text-gray-500">
                             <i class="fas fa-info-circle mr-1"></i>
-                            Selecciona si el perito requiere asistencia técnica
+                            Puedes agregar uno o varios apoyos técnicos. Haz clic en "Agregar" después de seleccionar cada uno.
                         </p>
+                        
+                        <!-- Campo oculto para enviar al servidor -->
+                        <input type="hidden" id="apoyos_tecnicos_hidden" name="apoyos_tecnicos">
                     </div>
 
 
@@ -498,7 +518,96 @@
             ]
         };
 
-/**
+
+        // ==================== GESTIÓN DE MÚLTIPLES APOYOS TÉCNICOS ====================
+        
+        // Array para almacenar apoyos seleccionados
+        let apoyosTecnicosSeleccionados = [];
+
+        /**
+         * Agregar apoyo técnico a la lista
+         */
+        function agregarApoyoTecnico() {
+            const select = document.getElementById('apoyo_tecnico');
+            const apoyoSeleccionado = select.value;
+            
+            if (!apoyoSeleccionado || apoyoSeleccionado === '') {
+                alert('⚠️ Por favor selecciona un apoyo técnico primero');
+                return;
+            }
+            
+            // Verificar si ya está agregado
+            if (apoyosTecnicosSeleccionados.includes(apoyoSeleccionado)) {
+                alert('⚠️ Este apoyo técnico ya ha sido agregado');
+                return;
+            }
+            
+            // Agregar al array
+            apoyosTecnicosSeleccionados.push(apoyoSeleccionado);
+            
+            // Actualizar la vista
+            renderizarListaApoyos();
+            
+            // Limpiar el select
+            select.value = '';
+        }
+
+        /**
+         * Eliminar apoyo técnico de la lista
+         */
+        function eliminarApoyoTecnico(index) {
+            if (confirm('¿Eliminar este apoyo técnico?')) {
+                apoyosTecnicosSeleccionados.splice(index, 1);
+                renderizarListaApoyos();
+            }
+        }
+
+        /**
+         * Renderizar la lista de apoyos técnicos
+         */
+        function renderizarListaApoyos() {
+            const contenedor = document.getElementById('listaApoyosTecnicos');
+            
+            if (apoyosTecnicosSeleccionados.length === 0) {
+                contenedor.innerHTML = `
+                    <div class="text-center py-3 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                        <i class="fas fa-user-slash text-gray-300 text-2xl mb-2"></i>
+                        <p class="text-gray-500 text-sm">No hay apoyos técnicos agregados</p>
+                    </div>
+                `;
+                // Limpiar campo oculto
+                document.getElementById('apoyos_tecnicos_hidden').value = '';
+                return;
+            }
+            
+            let html = '<div class="space-y-2">';
+            apoyosTecnicosSeleccionados.forEach((apoyo, index) => {
+                html += `
+                    <div class="flex items-center justify-between bg-teal-50 border border-teal-200 p-3 rounded-lg">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-user-tie text-teal-600 text-lg"></i>
+                            <span class="font-semibold text-gray-800">${apoyo}</span>
+                        </div>
+                        <button type="button"
+                                onclick="eliminarApoyoTecnico(${index})"
+                                class="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            contenedor.innerHTML = html;
+            
+            // Guardar en campo oculto como JSON para enviar al servidor
+            document.getElementById('apoyos_tecnicos_hidden').value = JSON.stringify(apoyosTecnicosSeleccionados);
+        }
+
+
+
+        //AGREGANDO NUEVAS COSAS HOY -------------------------------------------
+        /**
          * Al cambiar el tipo de perito, cargar peritos, actividades y apoyos técnicos
          */
         document.getElementById('tipo_perito').addEventListener('change', function() {
@@ -547,9 +656,13 @@
                 }
                 
                 // ==================== APOYO TÉCNICO ====================
+                // ==================== APOYO TÉCNICO ====================
+                const btnAgregarApoyo = document.getElementById('btnAgregarApoyo');
+                
                 if (apoyosPorTipo[tipoSeleccionado]) {
                     selectApoyo.disabled = false;
                     selectApoyo.classList.remove('bg-gray-100');
+                    btnAgregarApoyo.disabled = false;  // ← HABILITAR BOTÓN
                     
                     apoyosPorTipo[tipoSeleccionado].forEach(apoyo => {
                         const option = document.createElement('option');
@@ -560,7 +673,9 @@
                 } else {
                     selectApoyo.disabled = true;
                     selectApoyo.classList.add('bg-gray-100');
+                    btnAgregarApoyo.disabled = true;  // ← DESHABILITAR BOTÓN
                 }
+
             } else {
                 selectPerito.disabled = true;
                 selectPerito.classList.add('bg-gray-100');
@@ -675,7 +790,7 @@
                 dependencia: document.getElementById('dependencia').value,
                 tipo_perito: document.getElementById('tipo_perito').value,
                 tipo_actividad: document.getElementById('tipo_actividad').value,  // ← NUEVO
-                apoyo_tecnico: document.getElementById('apoyo_tecnico').value,  // ← NUEVO
+                apoyos_tecnicos: document.getElementById('apoyos_tecnicos_hidden').value,  // ← NUEVO
                 carpeta_fiscal: document.getElementById('carpeta_fiscal').value,
                 hoja_envio_designacion: document.getElementById('hoja_envio_designacion').value,
                 observaciones: document.getElementById('observaciones').value,
@@ -804,14 +919,21 @@
             document.getElementById('perito_id').classList.add('bg-gray-100');
             document.getElementById('tipo_actividad').disabled = true;
             document.getElementById('tipo_actividad').classList.add('bg-gray-100');
-            document.getElementById('apoyo_tecnico').disabled = true;  // ← NUEVO
-            document.getElementById('apoyo_tecnico').classList.add('bg-gray-100');  // ← NUEVO
+            //document.getElementById('apoyo_tecnico').disabled = true;  // ← NUEVO     -- ESTA POR VER SI SE ELIMINA-----------------------------
+           // document.getElementById('apoyo_tecnico').classList.add('bg-gray-100');  // ← NUEVO -- ESTA POR VER SI SE ELIMINA-----------------------------
+
             document.getElementById('alertaDisponibilidad').classList.add('hidden');
-            
+
+             // Limpiar apoyos técnicos
+            apoyosTecnicosSeleccionados = [];
+            renderizarListaApoyos();
+            document.getElementById('btnAgregarApoyo').disabled = true;
+
             // Limpiar archivos adjuntos
             archivosAcumulados = [];
             document.getElementById('archivos_adjuntos_temp').value = '';
             actualizarListaArchivos();
+
         }
 
         /**

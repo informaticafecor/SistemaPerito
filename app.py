@@ -161,7 +161,14 @@ def init_db():
         print("✅ Columna 'apoyo_tecnico' agregada a la tabla asignaciones")
     except sqlite3.OperationalError:
         print("ℹ️ Columna 'apoyo_tecnico' ya existe")
-
+    
+    # Renombrar columna apoyo_tecnico a apoyos_tecnicos (para JSON array)
+    try:
+        cursor.execute('ALTER TABLE asignaciones RENAME COLUMN apoyo_tecnico TO apoyos_tecnicos')
+        conn.commit()
+        print("✅ Columna renombrada de 'apoyo_tecnico' a 'apoyos_tecnicos'")
+    except sqlite3.OperationalError:
+        print("ℹ️ Columna 'apoyos_tecnicos' ya existe o no se pudo renombrar")
 
     
     conn.close()
@@ -295,14 +302,19 @@ def registrar_historial(asignacion_id, accion, detalles=''):
 # ============================================================================
 # RUTAS PRINCIPALES
 # ============================================================================
+#------------------------------------------------------------------------------------------------------- comienza aagregar nuevos codigos par apginacion
 
 @app.route('/')
 def index():
     """
-    Página principal - Dashboard con estadísticas generales
+    Página principal - Dashboard con estadísticas generales y paginación
     """
     # Actualizar estados automáticamente
     actualizar_estados_automaticos()
+    
+    # Obtener número de página actual (por defecto página 1)
+    pagina = request.args.get('pagina', 1, type=int)
+    por_pagina = 10  # Número de asignaciones por página
     
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -323,36 +335,42 @@ def index():
     cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Cancelado"')
     cancelados = cursor.fetchone()[0]
     
-    # Obtener asignaciones recientes (últimas 10)
+    # Calcular offset para la paginación
+    offset = (pagina - 1) * por_pagina
+    
+    # Obtener asignaciones con paginación
     cursor.execute('''
-        SELECT a.id, a.hoja_envio, a.expediente, a.dependencia, 
-               a.tipo_perito, a.carpeta_fiscal, a.observaciones, a.lugar,
-               a.fecha_inicio, a.fecha_fin, a.perito_asignado, a.perito_id,
-               a.desginacion, a.oficio_desplazamiento, a.estado, a.fecha_registro,
-               p.nombre_completo
+        SELECT 
+            a.id, a.hoja_envio, a.expediente, a.dependencia, 
+            a.tipo_perito, a.tipo_actividad, a.carpeta_fiscal, a.observaciones, a.lugar,
+            a.fecha_inicio, a.fecha_fin, a.perito_asignado, a.perito_id,
+            a.desginacion, a.oficio_desplazamiento, a.estado, a.fecha_registro,
+            p.nombre_completo
         FROM asignaciones a
         LEFT JOIN peritos p ON a.perito_id = p.id
         WHERE a.estado != "Cancelado"
         ORDER BY a.fecha_registro DESC
-        LIMIT 10
-    ''')
+        LIMIT ? OFFSET ?
+    ''', (por_pagina, offset))
     
     asignaciones_recientes = []
     for row in cursor.fetchall():
-        # row[16] es el nombre_completo del perito (última columna del SELECT)
-        # row[10] es perito_asignado
         asignaciones_recientes.append({
             'id': row[0],
             'hoja_envio': row[1],
             'expediente': row[2],
             'dependencia': row[3],
             'tipo_perito': row[4],
-            'fecha_inicio': row[8],
-            'fecha_fin': row[9],
-            'perito': row[16] if row[16] else row[10],  # nombre_completo o perito_asignado
-            'estado': row[14],
-            'lugar': row[7]
+            'tipo_actividad': row[5],
+            'fecha_inicio': row[9],
+            'fecha_fin': row[10],
+            'perito': row[17] if row[17] else row[11],
+            'estado': row[15],
+            'lugar': row[8]
         })
+    
+    # Calcular total de páginas
+    total_paginas = (total_asignaciones + por_pagina - 1) // por_pagina
     
     conn.close()
     
@@ -362,7 +380,10 @@ def index():
                          en_proceso=en_proceso,
                          completados=completados,
                          cancelados=cancelados,
-                         asignaciones=asignaciones_recientes)
+                         asignaciones=asignaciones_recientes,
+                         pagina_actual=pagina,
+                         total_paginas=total_paginas,
+                         por_pagina=por_pagina)
 
 @app.route('/nuevo')
 def nuevo():
@@ -499,7 +520,7 @@ def get_asignaciones():
             'dependencia': row['dependencia'],
             'tipo_perito': row['tipo_perito'],
             'tipo_actividad': row['tipo_actividad'],  # ← NUEVO
-            'apoyo_tecnico': row['apoyo_tecnico'],  # ← NUEVO
+            'apoyos_tecnicos': row['apoyo_tecnico'],  # ← NUEVO
             'carpeta_fiscal': row['carpeta_fiscal'],
             'hoja_envio_designacion': row['hoja_envio_designacion'],  # ← NUEVO
             'observaciones': row['observaciones'],
@@ -545,7 +566,7 @@ def get_asignacion(id):
             'dependencia': row['dependencia'],
             'tipo_perito': row['tipo_perito'],
             'tipo_actividad': row['tipo_actividad'],  # ← NUEVO
-            'apoyo_tecnico': row['apoyo_tecnico'],  # ← NUEVO
+            'apoyos_tecnicos': row['apoyo_tecnico'],  # ← NUEVO
             'carpeta_fiscal': row['carpeta_fiscal'],
             'hoja_envio_designacion': row['hoja_envio_designacion'],  # ← NUEVO
             'observaciones': row['observaciones'],
@@ -607,7 +628,7 @@ def crear_asignacion():
         data.get('dependencia', ''),
         data.get('tipo_perito', ''),
         data.get('tipo_actividad', ''),
-        data.get('apoyo_tecnico', ''),  # ← NUEVO
+        data.get('apoyos_tecnicos', ''),  # ← NUEVO
         data.get('carpeta_fiscal', ''),
         data.get('hoja_envio_designacion', ''),
         data.get('observaciones', ''),
