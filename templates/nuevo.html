@@ -207,6 +207,8 @@
                         </select>
                     </div>
 
+                    <!-- AGREGNADO NUEVO CODIGO -------------------------------------------------------->
+
                     <!-- Apoyo Técnico (Opcional) -->
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
@@ -570,7 +572,6 @@
         });
 
 
-
         /**
          * Verificar disponibilidad del perito cuando se seleccionan fechas
          */
@@ -699,6 +700,7 @@
             btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Guardando...';
             
             // Primero crear la asignación
+            // Primero crear la asignación
             fetch('/api/asignacion', {
                 method: 'POST',
                 headers: {
@@ -706,9 +708,16 @@
                 },
                 body: JSON.stringify(formData)
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+            .then(response => {
+                // Capturar tanto respuesta exitosa como error
+                return response.json().then(data => ({
+                    status: response.status,
+                    data: data
+                }));
+            })
+            .then(({status, data}) => {
+                // Si es exitoso (201)
+                if (status === 201 && data.success) {
                     const asignacionId = data.id;
                     
                     // Verificar si hay archivos para subir
@@ -737,19 +746,25 @@
                         // No hay archivos, mostrar éxito directamente
                         mostrarModalExito(asignacionId, 0);
                     }
-                } else if (data.error) {
-                    // Mostrar error
-                    mostrarAlerta('error', data.error);
-                    
-                    // Si hay conflictos, mostrarlos
-                    if (data.conflictos) {
-                        let mensaje = 'Conflictos detectados:<br><br>';
-                        data.conflictos.forEach(c => {
-                            mensaje += `• Expediente: ${c[1]}<br>`;
-                            mensaje += `  Fechas: ${c[2]} al ${c[3]}<br><br>`;
-                        });
+                } 
+                // Si hay error de conflicto (409)
+                else if (status === 409) {
+                    if (data.conflictos && data.conflictos.length > 0) {
+                        let mensaje = '⚠️ <strong>ALERTA:</strong> El perito ya tiene asignaciones en estas fechas:<br><br>';
+                        data.conflictos.forEach(conflicto => {
+                            mensaje += `📌 <strong>Expediente:</strong> ${conflicto.expediente || 'Sin expediente'}<br>`;
+                            mensaje += `&nbsp;&nbsp;&nbsp;📅 <strong>Fechas:</strong> ${conflicto.fecha_inicio} al ${conflicto.fecha_fin}<br>`;
+                            mensaje += `&nbsp;&nbsp;&nbsp;📍 <strong>Lugar:</strong> ${conflicto.lugar || 'N/A'}<br>`;
+                            mensaje += `&nbsp;&nbsp;&nbsp;📝 <strong>Observaciones:</strong> ${conflicto.observaciones || 'Sin observaciones'}<br><br>`;
+                        }); //-SI BORRO OBSERVACIONES YA NO SE PODRA VER EN LA ALERTA -----------------------------------------
                         mostrarAlerta('warning', mensaje);
+                    } else {
+                        mostrarAlerta('error', data.error || 'El perito no está disponible en estas fechas');
                     }
+                }
+                // Cualquier otro error
+                else {
+                    mostrarAlerta('error', data.error || 'Error al guardar la asignación');
                 }
             })
             .catch(error => {

@@ -196,6 +196,26 @@
                     <i class="fas fa-percentage mr-1"></i>0% del total
                 </p>
             </div>
+
+            <!-- Cancelados -->
+            <div class="stat-card bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500 fade-in" style="animation-delay: 0.3s">
+                <div class="flex items-center justify-between">
+                    <div>
+                         <p class="text-sm font-semibold text-gray-600 uppercase">Cancelados</p>
+                         <p class="text-3xl font-bold text-red-600 mt-2" id="totalCancelados">0</p>
+                    </div>
+                    <div class="bg-red-100 rounded-full p-3">
+                        <i class="fas fa-ban text-red-600 text-2xl"></i>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <span class="text-sm text-red-600 font-semibold" id="porcentajeCancelados">
+                            <i class="fas fa-percentage mr-1"></i>0% del total general
+                    </span>
+                </div>
+            </div>
+
+            
         </div>
 
         <!-- Gráficos -->
@@ -349,23 +369,32 @@
                 });
         }
 
+
         /**
          * Actualizar estadísticas generales en las tarjetas
          */
         function actualizarEstadisticasGenerales(data) {
             const porEstado = data.por_estado || {};
             
-            const total = Object.values(porEstado).reduce((sum, val) => sum + val, 0);
+            // Calcular total EXCLUYENDO cancelados
             const pendientes = porEstado['Pendiente'] || 0;
             const enProceso = porEstado['En Proceso'] || 0;
             const completados = porEstado['Completado'] || 0;
+            const cancelados = porEstado['Cancelado'] || 0;
+            const total = pendientes + enProceso + completados;  // Total sin cancelados
             
             document.getElementById('totalAsignaciones').textContent = total;
             document.getElementById('totalPendientes').textContent = pendientes;
             document.getElementById('totalEnProceso').textContent = enProceso;
             document.getElementById('totalCompletados').textContent = completados;
             
-            // Calcular porcentajes
+            // Actualizar cancelados si existe el elemento
+            const canceladosElement = document.getElementById('totalCancelados');
+            if (canceladosElement) {
+                canceladosElement.textContent = cancelados;
+            }
+            
+            // Calcular porcentajes (sobre el total sin cancelados)
             const porcentajePendientes = total > 0 ? ((pendientes / total) * 100).toFixed(1) : 0;
             const porcentajeEnProceso = total > 0 ? ((enProceso / total) * 100).toFixed(1) : 0;
             const porcentajeCompletados = total > 0 ? ((completados / total) * 100).toFixed(1) : 0;
@@ -376,6 +405,15 @@
                 `<i class="fas fa-percentage mr-1"></i>${porcentajeEnProceso}% del total`;
             document.getElementById('porcentajeCompletados').innerHTML = 
                 `<i class="fas fa-percentage mr-1"></i>${porcentajeCompletados}% del total`;
+            
+            // Porcentaje de cancelados si existe
+            const porcentajeCanceladosElement = document.getElementById('porcentajeCancelados');
+            if (porcentajeCanceladosElement && (pendientes + enProceso + completados + cancelados) > 0) {
+                const totalConCancelados = pendientes + enProceso + completados + cancelados;
+                const porcentajeCancelados = ((cancelados / totalConCancelados) * 100).toFixed(1);
+                porcentajeCanceladosElement.innerHTML = 
+                    `<i class="fas fa-percentage mr-1"></i>${porcentajeCancelados}% del total general`;
+            }
         }
 
         /**

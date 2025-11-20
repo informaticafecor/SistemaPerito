@@ -467,18 +467,21 @@
                 .then(response => response.json())
                 .then(asignaciones => {
                     // Calcular estadísticas
+                    // Calcular estadísticas (excluir cancelados del total)
                     const stats = {
-                        total: asignaciones.length,
+                        total: asignaciones.filter(a => a.estado !== 'Cancelado').length,
                         pendientes: asignaciones.filter(a => a.estado === 'Pendiente').length,
                         enProceso: asignaciones.filter(a => a.estado === 'En Proceso').length,
-                        completados: asignaciones.filter(a => a.estado === 'Completado').length
+                        completados: asignaciones.filter(a => a.estado === 'Completado').length,
+                        cancelados: asignaciones.filter(a => a.estado === 'Cancelado').length
                     };
                     
 
                     // Mostrar estadísticas
+                    // Mostrar estadísticas (5 contadores)
                     document.getElementById('statsPerito').innerHTML = `
                         <div class="text-center">
-                            <p class="text-sm text-gray-600 font-semibold">Total</p>
+                            <p class="text-sm text-gray-600 font-semibold">Total Activas</p>
                             <p class="text-3xl font-bold text-blue-600">${stats.total}</p>
                         </div>
                         <div class="text-center">
@@ -493,8 +496,10 @@
                             <p class="text-sm text-gray-600 font-semibold">Completados</p>
                             <p class="text-3xl font-bold text-green-600">${stats.completados}</p>
                         </div>
-
-
+                        <div class="text-center">
+                            <p class="text-sm text-gray-600 font-semibold">Cancelados</p>
+                            <p class="text-3xl font-bold text-red-600">${stats.cancelados}</p>
+                        </div>
                     `;
 
                     // Mostrar historial

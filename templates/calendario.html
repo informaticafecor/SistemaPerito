@@ -405,10 +405,12 @@
                 const fechaActual = `${anioActual}-${String(mesActual + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
                 
                 // Filtrar asignaciones para este día
+                // Filtrar asignaciones para este día (EXCLUYENDO canceladas)
                 const asignacionesDia = asignacionesDelMes.filter(a => {
-                    return fechaActual >= a.fecha_inicio && fechaActual <= a.fecha_fin;
+                    return fechaActual >= a.fecha_inicio && 
+                           fechaActual <= a.fecha_fin && 
+                           a.estado !== 'Cancelado';
                 });
-                
                 const celda = document.createElement('div');
                 celda.className = 'calendario-dia border-r border-b p-2 relative';
                 
@@ -494,15 +496,16 @@
          */
         function actualizarEstadisticas() {
             const stats = {
-                total: asignacionesDelMes.length,
+                total: asignacionesDelMes.filter(a => a.estado !== 'Cancelado').length,  // ← EXCLUIR CANCELADOS
                 pendientes: asignacionesDelMes.filter(a => a.estado === 'Pendiente').length,
                 enProceso: asignacionesDelMes.filter(a => a.estado === 'En Proceso').length,
-                completados: asignacionesDelMes.filter(a => a.estado === 'Completado').length
+                completados: asignacionesDelMes.filter(a => a.estado === 'Completado').length,
+                cancelados: asignacionesDelMes.filter(a => a.estado === 'Cancelado').length
             };
             
             const html = `
                 <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
-                    <p class="text-sm text-gray-600 font-semibold">Total del Mes</p>
+                    <p class="text-sm text-gray-600 font-semibold">Total Activas</p>
                     <p class="text-2xl font-bold text-gray-800">${stats.total}</p>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
@@ -517,11 +520,16 @@
                     <p class="text-sm text-gray-600 font-semibold">Completados</p>
                     <p class="text-2xl font-bold text-green-600">${stats.completados}</p>
                 </div>
+                
+                <div class="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">  
+                    <p class="text-sm text-gray-600 font-semibold">Cancelados</p>
+                    <p class="text-2xl font-bold text-red-600">${stats.cancelados}</p>
+                </div>
             `;
+            //SE PUEDE BORRAR EL CANCELADO PARA QUE NO APARESCA EN EL CALENDARIO SU TARJETA---------------------------------------------
             
             document.getElementById('estadisticasMes').innerHTML = html;
         }
-
         /**
          * Navegación de calendario
          */

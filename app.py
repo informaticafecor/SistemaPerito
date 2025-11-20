@@ -213,18 +213,17 @@ def verificar_disponibilidad(perito_id, fecha_inicio, fecha_fin, asignacion_id=N
         asignacion_id: ID de asignación a excluir (para ediciones)
     
     Returns:
-        tuple: (disponible: bool, conflictos: list)
+        tuple: (disponible: bool, conflictos: list de diccionarios)
     """
     conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row  # ← CLAVE: Permite acceder por nombre
     cursor = conn.cursor()
-    
-    # Convertir fechas a formato comparable
-    fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d')
-    fecha_fin_obj = datetime.strptime(fecha_fin, '%Y-%m-%d')
     
     # Buscar asignaciones que se solapen en fechas
     query = '''
-        SELECT id, expediente, fecha_inicio, fecha_fin, observaciones
+        SELECT id, hoja_envio, expediente, dependencia, tipo_perito,
+               carpeta_fiscal, observaciones, lugar, fecha_inicio, fecha_fin,
+               perito_asignado, estado
         FROM asignaciones
         WHERE perito_id = ?
         AND estado != 'Cancelado'
@@ -248,8 +247,26 @@ def verificar_disponibilidad(perito_id, fecha_inicio, fecha_fin, asignacion_id=N
         params.append(asignacion_id)
     
     cursor.execute(query, params)
-    conflictos = cursor.fetchall()
+    resultados = cursor.fetchall()
     conn.close()
+    
+    # Convertir resultados a lista de diccionarios
+    conflictos = []
+    for row in resultados:
+        conflictos.append({
+            'id': row['id'],
+            'hoja_envio': row['hoja_envio'],
+            'expediente': row['expediente'],
+            'dependencia': row['dependencia'],
+            'tipo_perito': row['tipo_perito'],
+            'carpeta_fiscal': row['carpeta_fiscal'],
+            'observaciones': row['observaciones'],
+            'lugar': row['lugar'],
+            'fecha_inicio': row['fecha_inicio'],
+            'fecha_fin': row['fecha_fin'],
+            'perito_asignado': row['perito_asignado'],
+            'estado': row['estado']
+        })
     
     disponible = len(conflictos) == 0
     
