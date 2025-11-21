@@ -557,7 +557,7 @@ def login():
                 return jsonify({'success': False, 'error': 'Usuario o contraseña incorrectos'}), 401
             return render_template('login.html', error='Usuario o contraseña incorrectos')
     
-    return render_template('login.html')
+    return render_template('auth/login.html')
 
 @app.route('/logout')
 def logout():
@@ -655,7 +655,252 @@ def cambiar_password():
             return jsonify({'success': True, 'message': 'Contraseña actualizada correctamente', 'redirect': '/'})
         return redirect(url_for('index'))
     
-    return render_template('cambiar_password.html', primer_inicio=session.get('primer_inicio', 0))   
+    return render_template('auth/cambiar_password.html', primer_inicio=session.get('primer_inicio', 0))   
+
+
+
+# ============================================
+# GESTIÓN DE USUARIOS (Solo Admin)
+# ============================================
+
+@app.route('/usuarios')
+@admin_required
+def gestion_usuarios():
+    """
+    Página de gestión de usuarios
+    """
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Obtener todos los usuarios
+    cursor.execute('''
+        SELECT u.*, p.nombre_completo as perito_nombre
+        FROM usuarios u
+        LEFT JOIN peritos p ON u.perito_id = p.id
+        ORDER BY u.fecha_creacion DESC
+    ''')
+    
+    usuarios = []
+    for row in cursor.fetchall():
+        usuarios.append({
+            'id': row['id'],
+            'usuario': row['usuario'],
+            'rol': row['rol'],
+            'perito_id': row['perito_id'],
+            'perito_nombre': row['perito_nombre'],
+            'nombre_completo': row['nombre_completo'],
+            'email': row['email'],
+            'activo': row['activo'],
+            'primer_inicio': row['primer_inicio'],
+            'fecha_creacion': row['fecha_creacion'],
+            'ultimo_acceso': row['ultimo_acceso']
+        })
+    
+    # Obtener peritos para el select
+    cursor.execute('SELECT id, nombre_completo, tipo_perito FROM peritos ORDER BY nombre_completo')
+    peritos = [{'id': row['id'], 'nombre': row['nombre_completo'], 'tipo': row['tipo_perito']} for row in cursor.fetchall()]
+    
+    conn.close()
+    
+    return render_template('admin/usuarios.html', usuarios=usuarios, peritos=peritos)
+
+@app.route('/api/usuario', methods=['POST'])
+@admin_required
+def crear_usuario():
+    """
+    Crear nuevo usuario
+    """
+    data = request.json
+    
+    # Validaciones
+    if not data.get('usuario') or not data.get('password') or not data.get('rol'):
+        return jsonify({'success': False, 'error': 'Usuario, contraseña y rol son requeridos'}), 400
+    
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    # Verificar si el usuario ya existe
+    cursor.execute('SELECT id FROM usuarios WHERE usuario = ?', (data['usuario'],))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({'success': False, 'error': 'El nombre de usuario ya existe'}), 409
+    
+    # Encriptar contraseña
+    password_hash = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
+    
+    # Insertar usuario
+    cursor.execute('''
+        INSERT INTO usuarios (usuario, password, rol, perito_id, nombre_completo, email, activo, primer_inicio)
+        VALUES (?, ?, ?, ?, ?, ?, 1, 1)
+    ''', (
+        data['usuario'],
+        password_hash.decode('utf-8'),
+        data['rol'],
+        data.get('perito_id') if data.get('perito_id') else None,
+        data.get('nombre_completo', ''),
+        data.get('email', '')
+    ))
+    
+    usuario_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    # Registrar en auditoría
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'CREAR_USUARIO',
+        'USUARIOS',
+        f"Usuario '{data['usuario']}' creado con rol '{data['rol']}'",
+        usuario_id
+    )
+    
+    return jsonify({'success': True, 'id': usuario_id, 'message': 'Usuario creado exitosamente'})
+
+@app.route('/api/usuario/<int:id>', methods=['PUT'])
+@admin_required
+def actualizar_usuario(id):
+    """
+    Actualizar usuario existente
+    """
+    data = request.json
+    
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    # Verificar que el usuario existe
+    cursor.execute('SELECT id FROM usuarios WHERE id = ?', (id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({'success': False, 'error': 'Usuario no encontrado'}), 404
+    
+    # Construir query de actualización
+    campos = []
+    valores = []
+    
+    if 'nombre_completo' in data:
+        campos.append('nombre_completo = ?')
+        valores.append(data['nombre_completo'])
+    
+    if 'email' in data:
+        campos.append('email = ?')
+        valores.append(data['email'])
+    
+    if 'rol' in data:
+        campos.append('rol = ?')
+        valores.append(data['rol'])
+    
+    if 'perito_id' in data:
+        campos.append('perito_id = ?')
+        valores.append(data['perito_id'] if data['perito_id'] else None)
+    
+    if 'activo' in data:
+        campos.append('activo = ?')
+        valores.append(1 if data['activo'] else 0)
+    
+    if not campos:
+        conn.close()
+        return jsonify({'success': False, 'error': 'No hay campos para actualizar'}), 400
+    
+    valores.append(id)
+    query = f"UPDATE usuarios SET {', '.join(campos)} WHERE id = ?"
+    
+    cursor.execute(query, valores)
+    conn.commit()
+    conn.close()
+    
+    # Registrar en auditoría
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'EDITAR_USUARIO',
+        'USUARIOS',
+        f"Usuario ID {id} actualizado",
+        id
+    )
+    
+    return jsonify({'success': True, 'message': 'Usuario actualizado exitosamente'})
+
+@app.route('/api/usuario/<int:id>/resetear-password', methods=['POST'])
+@admin_required
+def resetear_password(id):
+    """
+    Resetear contraseña de un usuario
+    """
+    data = request.json
+    nueva_password = data.get('password', 'password123')
+    
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    # Verificar que el usuario existe
+    cursor.execute('SELECT usuario FROM usuarios WHERE id = ?', (id,))
+    user = cursor.fetchone()
+    if not user:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Usuario no encontrado'}), 404
+    
+    # Encriptar nueva contraseña
+    password_hash = bcrypt.hashpw(nueva_password.encode('utf-8'), bcrypt.gensalt())
+    
+    # Actualizar contraseña y marcar primer_inicio
+    cursor.execute('''
+        UPDATE usuarios SET password = ?, primer_inicio = 1 WHERE id = ?
+    ''', (password_hash.decode('utf-8'), id))
+    
+    conn.commit()
+    conn.close()
+    
+    # Registrar en auditoría
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'RESETEAR_PASSWORD',
+        'USUARIOS',
+        f"Contraseña reseteada para usuario '{user[0]}'",
+        id
+    )
+    
+    return jsonify({'success': True, 'message': f'Contraseña reseteada. Nueva contraseña: {nueva_password}'})
+
+@app.route('/api/usuario/<int:id>', methods=['DELETE'])
+@admin_required
+def eliminar_usuario(id):
+    """
+    Eliminar usuario
+    """
+    # No permitir eliminar el propio usuario
+    if id == session.get('usuario_id'):
+        return jsonify({'success': False, 'error': 'No puedes eliminar tu propio usuario'}), 400
+    
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    # Verificar que el usuario existe
+    cursor.execute('SELECT usuario FROM usuarios WHERE id = ?', (id,))
+    user = cursor.fetchone()
+    if not user:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Usuario no encontrado'}), 404
+    
+    # Eliminar usuario
+    cursor.execute('DELETE FROM usuarios WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    
+    # Registrar en auditoría
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'ELIMINAR_USUARIO',
+        'USUARIOS',
+        f"Usuario '{user[0]}' eliminado",
+        id
+    )
+    
+    return jsonify({'success': True, 'message': 'Usuario eliminado exitosamente'})
+
 
 # ============================================================================
 # RUTAS PRINCIPALES
@@ -733,7 +978,7 @@ def index():
     
     conn.close()
     
-    return render_template('index.html',
+    return render_template('core/index.html',
                          total=total_asignaciones,
                          pendientes=pendientes,
                          en_proceso=en_proceso,
@@ -772,7 +1017,7 @@ def nuevo():
             'nombre': perito[1]
         })
     
-    return render_template('nuevo.html', peritos=peritos_por_tipo)
+    return render_template('core/nuevo.html', peritos=peritos_por_tipo)
 
 @app.route('/buscar')
 @login_required  # ← AGREGAR
@@ -780,7 +1025,7 @@ def buscar():
     """
     Página de búsqueda avanzada
     """
-    return render_template('buscar.html')
+    return render_template('core/buscar.html')
 
 @app.route('/calendario')
 @login_required  # ← AGREGAR
@@ -788,7 +1033,7 @@ def calendario():
     """
     Vista de calendario con asignaciones
     """
-    return render_template('calendario.html')
+    return render_template('core/calendario.html')
 
 @app.route('/peritos')
 @login_required  # ← AGREGAR
@@ -817,7 +1062,7 @@ def peritos():
     
     conn.close()
     
-    return render_template('peritos.html', peritos=peritos_list)
+    return render_template('core/peritos.html', peritos=peritos_list)
 
 @app.route('/reportes')
 @login_required  # ← AGREGAR
@@ -825,7 +1070,7 @@ def reportes():
     """
     Página de reportes y estadísticas
     """
-    return render_template('reportes.html')
+    return render_template('core/reportes.html')
 
 # ============================================================================
 # API ENDPOINTS
@@ -1793,7 +2038,7 @@ def vacaciones():
     
     conn.close()
     
-    return render_template('vacaciones.html',
+    return render_template('admin/vacaciones.html',
                          vacaciones=vacaciones_list,
                          total=total_vacaciones,
                          aprobadas=aprobadas,
