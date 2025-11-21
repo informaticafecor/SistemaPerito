@@ -323,7 +323,7 @@
     <!-- Modal: Detalle de Vacación -->
     <div id="modalDetalleVacacion" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div class="bg-gradient-to-r from-orange-600 to-orange-500 px-6 py-4 flex justify-between items-center">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex justify-between items-center">
                 <h3 class="text-xl font-bold text-white">
                     <i class="fas fa-info-circle mr-2"></i>Detalle de Vacaciones
                 </h3>
@@ -483,7 +483,7 @@
                 .then(data => {
                     const contenido = `
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="col-span-2 bg-gradient-to-r from-orange-600 to-orange-500 p-4 -m-6 mb-4">
+                            <div class="col-span-2 bg-gradient-to-r from-blue-600 to-blue-500 p-4 -m-6 mb-4">
                                 <h4 class="text-lg font-bold text-white">
                                     <i class="fas fa-user-tie mr-2"></i>Información del Perito
                                 </h4>
@@ -503,7 +503,7 @@
                                 </p>
                             </div>
                             
-                            <div class="col-span-2 bg-gradient-to-r from-purple-600 to-purple-500 p-4 -mx-6 mb-2 mt-4">
+                            <div class="col-span-2 bg-gradient-to-r from-blue-600 to-blue-500 p-4 -mx-6 mb-2 mt-4">
                                 <h4 class="text-lg font-bold text-white">
                                     <i class="fas fa-calendar-alt mr-2"></i>Período de Vacaciones
                                 </h4>
@@ -527,7 +527,7 @@
                             
                             <div class="col-span-2 bg-purple-50 p-4 rounded-lg">
                                 <label class="text-sm font-semibold text-gray-600">Días Totales:</label>
-                                <p class="text-3xl font-bold text-purple-600">${data.dias_totales} días</p>
+                                <p class="text-3xl font-bold text-block-600">${data.dias_totales} días</p>
                             </div>
                             
                             <div>

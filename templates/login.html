@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - Sistema Perito</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: rgba(255, 255, 255, 0.95);
+            min-height: 100vh;
+        }
+        .login-card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+        .input-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6B7280;
+        }
+        .input-field {
+            padding-left: 35px !important;  /* ← AUMENTADO */
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+    
+    <div class="login-card rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        <!-- Logo y Título -->
+        <div class="text-center mb-8">
+            <div class="mb-4">
+                <img src="{{ url_for('static', filename='imagenes/logompo.png') }}" 
+                     alt="Logo Sistema Perito" 
+                     class="w-24 h-24 mx-auto object-contain">
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800">SISTEMA PERITO</h1>
+            <p class="text-gray-500 text-sm mt-1">Sistema de Gestión de Asignaciones</p>
+            <div class="w-16 h-1 bg-blue-600 mx-auto mt-3 rounded"></div>
+        </div>
+        
+        <!-- Título del formulario -->
+        <h2 class="text-lg font-semibold text-gray-700 mb-6">INICIO DE SESIÓN</h2>
+        
+        <!-- Mensaje de error -->
+        {% if error %}
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded" role="alert">
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                <span>{{ error }}</span>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Formulario -->
+        <form id="loginForm" method="POST" class="space-y-5">
+            <!-- Usuario -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">  USUARIO</label>
+                <div class="relative">
+                    <i class="fas fa-user input-icon"></i>
+                    <input type="text" 
+                           name="usuario" 
+                           id="usuario"
+                           required
+                           autocomplete="username"
+                           class="input-field w-full py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-gray-700"
+                           placeholder="Ingrese Usuario">
+                </div>
+            </div>
+            
+            <!-- Contraseña -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">CONTRASEÑA</label>
+                <div class="relative">
+                    <i class="fas fa-lock input-icon"></i>
+                    <input type="password" 
+                           name="password" 
+                           id="password"
+                           required
+                           autocomplete="current-password"
+                           class="input-field w-full py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-gray-700 pr-12"
+                           placeholder="Ingrese Contraseña">
+                           
+                    <button type="button" 
+                            onclick="togglePassword()"
+                            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-eye" id="toggleIcon"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Botón Ingresar -->
+            <button type="submit" 
+                    id="btnIngresar"
+                    class="w-full bg-blue-900 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-800 transition flex items-center justify-center space-x-2">
+                <span>INGRESAR</span>
+                <i class="fas fa-arrow-right"></i>
+            </button>
+        </form>
+        
+        <!-- Footer -->
+        <div class="mt-8 text-center text-gray-400 text-xs">
+            <p>© 2025 Sistema Perito - Gestión de Asignaciones</p>
+        </div>
+    </div>
+    
+    <script>
+        // Toggle mostrar/ocultar contraseña
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('toggleIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
+        
+        // Manejar envío del formulario
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const usuario = document.getElementById('usuario').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const btnIngresar = document.getElementById('btnIngresar');
+            
+            if (!usuario || !password) {
+                alert('Por favor ingrese usuario y contraseña');
+                return;
+            }
+            
+            // Deshabilitar botón
+            btnIngresar.disabled = true;
+            btnIngresar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Verificando...';
+            
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ usuario, password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect || '/';
+                } else {
+                    alert(data.error || 'Error al iniciar sesión');
+                    btnIngresar.disabled = false;
+                    btnIngresar.innerHTML = '<span>INGRESAR</span><i class="fas fa-arrow-right ml-2"></i>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error de conexión');
+                btnIngresar.disabled = false;
+                btnIngresar.innerHTML = '<span>INGRESAR</span><i class="fas fa-arrow-right ml-2"></i>';
+            });
+        });
+    </script>
+</body>
+</html>

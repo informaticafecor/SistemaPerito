@@ -6,11 +6,15 @@ Descripción: Sistema web para gestionar asignaciones de peritos con validación
 de disponibilidad, búsqueda avanzada y exportación de reportes.
 """
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, session
 import sqlite3
 import json
 from datetime import datetime, timedelta
+from functools import wraps
+import bcrypt
 import os
+
+
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -19,7 +23,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
-from werkzeug.utils import secure_filename
+from werkzeug.utils import secure_filename  
 
 
 
@@ -42,6 +46,11 @@ def allowed_file(filename):
     """
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+# Configuración de sesiones
+app.secret_key = 'tu_clave_secreta_muy_segura_2025'  # Cambiar en producción
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['PERMANENT_SESSION_LIFETIME'] = 28800  # 8 horas en segundos
 
 # ============================================================================
 # CONFIGURACIÓN DE BASE DE DATOS
@@ -155,6 +164,62 @@ def init_db():
     conn.commit()
 
 
+# ============================================
+    # TABLA DE USUARIOS
+    # ============================================
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            rol TEXT NOT NULL,
+            perito_id INTEGER,
+            nombre_completo TEXT,
+            email TEXT,
+            activo INTEGER DEFAULT 1,
+            primer_inicio INTEGER DEFAULT 1,
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ultimo_acceso TIMESTAMP,
+            FOREIGN KEY (perito_id) REFERENCES peritos(id)
+        )
+    ''')
+    print("✅ Tabla 'usuarios' verificada/creada")
+    
+    # ============================================
+    # TABLA DE AUDITORÍA
+    # ============================================
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS auditoria (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER NOT NULL,
+            usuario_nombre TEXT,
+            accion TEXT NOT NULL,
+            modulo TEXT,
+            descripcion TEXT,
+            registro_id INTEGER,
+            ip_address TEXT,
+            fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        )
+    ''')
+    print("✅ Tabla 'auditoria' verificada/creada")
+    
+    # ============================================
+    # CREAR USUARIO ADMIN POR DEFECTO
+    # ============================================
+    cursor.execute('SELECT COUNT(*) FROM usuarios WHERE usuario = "admin"')
+    if cursor.fetchone()[0] == 0:
+        # Encriptar contraseña
+        password_hash = bcrypt.hashpw('admin123'.encode('utf-8'), bcrypt.gensalt())
+        cursor.execute('''
+            INSERT INTO usuarios (usuario, password, rol, nombre_completo, primer_inicio)
+            VALUES (?, ?, ?, ?, ?)
+        ''', ('admin', password_hash.decode('utf-8'), 'admin', 'Administrador del Sistema', 0))
+        print("✅ Usuario 'admin' creado con contraseña 'admin123'")
+    
+    conn.commit()
+
+
     # Agregar columna para archivos adjuntos si no existe
     try:
         cursor.execute('ALTER TABLE asignaciones ADD COLUMN archivos_adjuntos TEXT')
@@ -199,6 +264,72 @@ def init_db():
     conn.close()
 
     #-----------------------------------------------------------------------------------------------------------
+
+
+
+# ============================================
+# FUNCIONES DE AUTENTICACIÓN
+# ============================================
+
+def registrar_auditoria(usuario_id, usuario_nombre, accion, modulo=None, descripcion=None, registro_id=None):
+    """
+    Registra una acción en la tabla de auditoría
+    """
+    try:
+        conn = sqlite3.connect('database.db')
+        cursor = conn.cursor()
+        
+        ip_address = request.remote_addr if request else 'Sistema'
+        
+        cursor.execute('''
+            INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, descripcion, registro_id, ip_address)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (usuario_id, usuario_nombre, accion, modulo, descripcion, registro_id, ip_address))
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error al registrar auditoría: {e}")
+
+def login_required(f):
+    """
+    Decorador para requerir login en las rutas
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'usuario_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    """
+    Decorador para requerir rol admin
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'usuario_id' not in session:
+            return redirect(url_for('login'))
+        if session.get('rol') != 'admin':
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def get_usuario_actual():
+    """
+    Obtiene los datos del usuario actual desde la sesión
+    """
+    if 'usuario_id' in session:
+        return {
+            'id': session.get('usuario_id'),
+            'usuario': session.get('usuario'),
+            'rol': session.get('rol'),
+            'nombre': session.get('nombre_completo'),
+            'perito_id': session.get('perito_id')
+        }
+    return None
+
+
 def actualizar_estados_automaticos():
     """
     Actualiza automáticamente los estados de las asignaciones según las fechas
@@ -354,12 +485,185 @@ def registrar_historial(asignacion_id, accion, detalles=''):
     conn.commit()
     conn.close()
 
+
+# ============================================
+# RUTAS DE AUTENTICACIÓN
+# ============================================
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """
+    Página de inicio de sesión
+    """
+    # Si ya está logueado, redirigir al dashboard
+    if 'usuario_id' in session:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        data = request.json if request.is_json else request.form
+        usuario = data.get('usuario', '').strip()
+        password = data.get('password', '').strip()
+        
+        if not usuario or not password:
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Usuario y contraseña son requeridos'}), 400
+            return render_template('login.html', error='Usuario y contraseña son requeridos')
+        
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM usuarios WHERE usuario = ? AND activo = 1', (usuario,))
+        user = cursor.fetchone()
+        
+        if user and bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
+            # Login exitoso
+            session.permanent = True
+            session['usuario_id'] = user['id']
+            session['usuario'] = user['usuario']
+            session['rol'] = user['rol']
+            session['nombre_completo'] = user['nombre_completo']
+            session['perito_id'] = user['perito_id']
+            session['primer_inicio'] = user['primer_inicio']
+            
+            # Actualizar último acceso
+            cursor.execute('UPDATE usuarios SET ultimo_acceso = CURRENT_TIMESTAMP WHERE id = ?', (user['id'],))
+            conn.commit()
+            
+            # Registrar en auditoría
+            registrar_auditoria(
+                user['id'], 
+                user['nombre_completo'], 
+                'LOGIN', 
+                'AUTENTICACIÓN', 
+                f"Inicio de sesión exitoso desde IP: {request.remote_addr}"
+            )
+            
+            conn.close()
+            
+            # Si es primer inicio, redirigir a cambio de contraseña
+            if user['primer_inicio'] == 1:
+                if request.is_json:
+                    return jsonify({'success': True, 'redirect': '/cambiar-password', 'primer_inicio': True})
+                return redirect(url_for('cambiar_password'))
+            
+            if request.is_json:
+                return jsonify({'success': True, 'redirect': '/'})
+            return redirect(url_for('index'))
+        else:
+            conn.close()
+            # Registrar intento fallido (sin usuario válido)
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Usuario o contraseña incorrectos'}), 401
+            return render_template('login.html', error='Usuario o contraseña incorrectos')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """
+    Cerrar sesión
+    """
+    if 'usuario_id' in session:
+        registrar_auditoria(
+            session['usuario_id'],
+            session.get('nombre_completo', 'Usuario'),
+            'LOGOUT',
+            'AUTENTICACIÓN',
+            'Cierre de sesión'
+        )
+    
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/cambiar-password', methods=['GET', 'POST'])
+@login_required
+def cambiar_password():
+    """
+    Página para cambiar contraseña
+    """
+    if request.method == 'POST':
+        data = request.json if request.is_json else request.form
+        password_actual = data.get('password_actual', '').strip()
+        password_nueva = data.get('password_nueva', '').strip()
+        password_confirmar = data.get('password_confirmar', '').strip()
+        
+        # Validaciones
+        if not password_nueva or not password_confirmar:
+            error = 'Todos los campos son requeridos'
+            if request.is_json:
+                return jsonify({'success': False, 'error': error}), 400
+            return render_template('cambiar_password.html', error=error)
+        
+        if password_nueva != password_confirmar:
+            error = 'Las contraseñas no coinciden'
+            if request.is_json:
+                return jsonify({'success': False, 'error': error}), 400
+            return render_template('cambiar_password.html', error=error)
+        
+        if len(password_nueva) < 6:
+            error = 'La contraseña debe tener al menos 6 caracteres'
+            if request.is_json:
+                return jsonify({'success': False, 'error': error}), 400
+            return render_template('cambiar_password.html', error=error)
+        
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT password FROM usuarios WHERE id = ?', (session['usuario_id'],))
+        user = cursor.fetchone()
+        
+        # Si NO es primer inicio, validar contraseña actual
+        if session.get('primer_inicio') != 1:
+            if not password_actual:
+                conn.close()
+                error = 'Debe ingresar su contraseña actual'
+                if request.is_json:
+                    return jsonify({'success': False, 'error': error}), 400
+                return render_template('cambiar_password.html', error=error)
+            
+            if not bcrypt.checkpw(password_actual.encode('utf-8'), user['password'].encode('utf-8')):
+                conn.close()
+                error = 'La contraseña actual es incorrecta'
+                if request.is_json:
+                    return jsonify({'success': False, 'error': error}), 400
+                return render_template('cambiar_password.html', error=error)
+        
+        # Actualizar contraseña
+        password_hash = bcrypt.hashpw(password_nueva.encode('utf-8'), bcrypt.gensalt())
+        cursor.execute('''
+            UPDATE usuarios SET password = ?, primer_inicio = 0 WHERE id = ?
+        ''', (password_hash.decode('utf-8'), session['usuario_id']))
+        
+        conn.commit()
+        conn.close()
+        
+        # Actualizar sesión
+        session['primer_inicio'] = 0
+        
+        # Registrar en auditoría
+        registrar_auditoria(
+            session['usuario_id'],
+            session.get('nombre_completo', 'Usuario'),
+            'CAMBIO_PASSWORD',
+            'AUTENTICACIÓN',
+            'Cambio de contraseña exitoso'
+        )
+        
+        if request.is_json:
+            return jsonify({'success': True, 'message': 'Contraseña actualizada correctamente', 'redirect': '/'})
+        return redirect(url_for('index'))
+    
+    return render_template('cambiar_password.html', primer_inicio=session.get('primer_inicio', 0))   
+
 # ============================================================================
 # RUTAS PRINCIPALES
 # ============================================================================
 #------------------------------------------------------------------------------------------------------- comienza aagregar nuevos codigos par apginacion
 
 @app.route('/')
+@login_required 
 def index():
     """
     Página principal - Dashboard con estadísticas generales y paginación
@@ -441,6 +745,7 @@ def index():
                          por_pagina=por_pagina)
 
 @app.route('/nuevo')
+@login_required  # ← AGREGAR
 def nuevo():
     """
     Página para registrar nueva asignación
@@ -470,6 +775,7 @@ def nuevo():
     return render_template('nuevo.html', peritos=peritos_por_tipo)
 
 @app.route('/buscar')
+@login_required  # ← AGREGAR
 def buscar():
     """
     Página de búsqueda avanzada
@@ -477,6 +783,7 @@ def buscar():
     return render_template('buscar.html')
 
 @app.route('/calendario')
+@login_required  # ← AGREGAR
 def calendario():
     """
     Vista de calendario con asignaciones
@@ -484,6 +791,7 @@ def calendario():
     return render_template('calendario.html')
 
 @app.route('/peritos')
+@login_required  # ← AGREGAR
 def peritos():
     """
     Gestión de peritos
@@ -512,6 +820,7 @@ def peritos():
     return render_template('peritos.html', peritos=peritos_list)
 
 @app.route('/reportes')
+@login_required  # ← AGREGAR
 def reportes():
     """
     Página de reportes y estadísticas
@@ -688,6 +997,7 @@ def get_asignacion(id):
 
 
 @app.route('/api/asignacion', methods=['POST'])
+@login_required  # ← AGREGAR
 def crear_asignacion():
     """
     Crea una nueva asignación
@@ -756,6 +1066,7 @@ def crear_asignacion():
     }), 201
 
 @app.route('/api/asignacion/<int:id>', methods=['PUT'])
+@login_required  # ← AGREGAR
 def actualizar_asignacion(id):
     """
     Actualiza una asignación existente
@@ -817,6 +1128,7 @@ def actualizar_asignacion(id):
 # ------------------------------------------------------
 
 @app.route('/api/asignacion/<int:id>', methods=['DELETE'])
+@login_required  # ← AGREGAR
 def eliminar_asignacion(id):
     """
     Elimina (marca como cancelada) una asignación
@@ -1436,6 +1748,7 @@ def descargar_archivo(filename):
 # ============================================
 
 @app.route('/vacaciones')
+@login_required  # ← AGREGAR
 def vacaciones():
     """
     Página de gestión de vacaciones
@@ -1487,6 +1800,7 @@ def vacaciones():
                          pendientes=pendientes)
 
 @app.route('/api/vacacion', methods=['POST'])
+@login_required  # ← AGREGAR
 def crear_vacacion():
     """
     Registrar nuevo período de vacaciones
