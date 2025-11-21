@@ -130,6 +130,31 @@ def init_db():
         )
         conn.commit()
 
+
+    # ============================================
+    # TABLA DE VACACIONES ----------------------------------------------------------------------------------------
+    # ============================================
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS vacaciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            perito_id INTEGER NOT NULL,
+            tipo_perito TEXT,
+            fecha_inicio TEXT NOT NULL,
+            fecha_fin TEXT NOT NULL,
+            dias_totales INTEGER,
+            tipo_vacaciones TEXT DEFAULT 'Programadas',
+            estado TEXT DEFAULT 'Aprobadas',
+            observaciones TEXT,
+            archivos_adjuntos TEXT,
+            fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (perito_id) REFERENCES peritos(id)
+        )
+    ''')
+    
+    print("✅ Tabla 'vacaciones' verificada/creada")
+    conn.commit()
+
+
     # Agregar columna para archivos adjuntos si no existe
     try:
         cursor.execute('ALTER TABLE asignaciones ADD COLUMN archivos_adjuntos TEXT')
@@ -223,10 +248,12 @@ def verificar_disponibilidad(perito_id, fecha_inicio, fecha_fin, asignacion_id=N
         tuple: (disponible: bool, conflictos: list de diccionarios)
     """
     conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row  # ← CLAVE: Permite acceder por nombre
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Buscar asignaciones que se solapen en fechas
+    conflictos = []
+    
+    # ==================== VERIFICAR ASIGNACIONES ====================
     query = '''
         SELECT id, hoja_envio, expediente, dependencia, tipo_perito,
                carpeta_fiscal, observaciones, lugar, fecha_inicio, fecha_fin,
@@ -254,14 +281,13 @@ def verificar_disponibilidad(perito_id, fecha_inicio, fecha_fin, asignacion_id=N
         params.append(asignacion_id)
     
     cursor.execute(query, params)
-    resultados = cursor.fetchall()
-    conn.close()
+    resultados_asignaciones = cursor.fetchall()
     
-    # Convertir resultados a lista de diccionarios
-    conflictos = []
-    for row in resultados:
+    # Convertir asignaciones a diccionarios
+    for row in resultados_asignaciones:
         conflictos.append({
             'id': row['id'],
+            'tipo': 'asignacion',
             'hoja_envio': row['hoja_envio'],
             'expediente': row['expediente'],
             'dependencia': row['dependencia'],
@@ -274,6 +300,35 @@ def verificar_disponibilidad(perito_id, fecha_inicio, fecha_fin, asignacion_id=N
             'perito_asignado': row['perito_asignado'],
             'estado': row['estado']
         })
+    
+    # ==================== VERIFICAR VACACIONES ====================
+    cursor.execute('''
+        SELECT id, tipo_perito, fecha_inicio, fecha_fin, tipo_vacaciones, dias_totales, observaciones
+        FROM vacaciones
+        WHERE perito_id = ?
+        AND (
+            (fecha_inicio <= ? AND fecha_fin >= ?) OR
+            (fecha_inicio <= ? AND fecha_fin >= ?) OR
+            (fecha_inicio >= ? AND fecha_fin <= ?)
+        )
+    ''', (perito_id, fecha_fin, fecha_inicio, fecha_fin, fecha_fin, fecha_inicio, fecha_fin))
+    
+    resultados_vacaciones = cursor.fetchall()
+    
+    # Convertir vacaciones a diccionarios
+    for row in resultados_vacaciones:
+        conflictos.append({
+            'id': row['id'],
+            'tipo': 'vacacion',
+            'expediente': '🏖️ VACACIONES',
+            'fecha_inicio': row['fecha_inicio'],
+            'fecha_fin': row['fecha_fin'],
+            'tipo_vacaciones': row['tipo_vacaciones'],
+            'dias_totales': row['dias_totales'],
+            'observaciones': f"Período de vacaciones ({row['tipo_vacaciones']}) - {row['dias_totales']} días"
+        })
+    
+    conn.close()  # ← CERRAR CONEXIÓN AL FINAL
     
     disponible = len(conflictos) == 0
     
@@ -468,23 +523,22 @@ def reportes():
 # ============================================================================
 
 
-
 @app.route('/api/asignaciones', methods=['GET'])
 def get_asignaciones():
     """
-    Obtiene todas las asignaciones con filtros opcionales
+    Obtiene todas las asignaciones Y vacaciones con filtros opcionales
     Query params: estado, perito_id, fecha_desde, fecha_hasta
     """
     conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row  # ← ESTO ES CLAVE
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Construir query con filtros
+    # ==================== OBTENER ASIGNACIONES ====================
     query = '''
         SELECT a.*, p.nombre_completo
         FROM asignaciones a
         LEFT JOIN peritos p ON a.perito_id = p.id
-        WHERE 1=1
+        WHERE a.estado != 'Cancelado'
     '''
     params = []
     
@@ -511,18 +565,21 @@ def get_asignaciones():
     
     cursor.execute(query, params)
     
-    asignaciones = []
+    resultados = []
+    
+    # Agregar asignaciones
     for row in cursor.fetchall():
-        asignaciones.append({
+        resultados.append({
             'id': row['id'],
+            'tipo': 'asignacion',  # ← IDENTIFICADOR DE TIPO
             'hoja_envio': row['hoja_envio'],
             'expediente': row['expediente'],
             'dependencia': row['dependencia'],
             'tipo_perito': row['tipo_perito'],
-            'tipo_actividad': row['tipo_actividad'],  # ← NUEVO
-            'apoyos_tecnicos': row['apoyo_tecnico'],  # ← NUEVO
+            'tipo_actividad': row['tipo_actividad'],
+            'apoyos_tecnicos': row['apoyo_tecnico'],
             'carpeta_fiscal': row['carpeta_fiscal'],
-            'hoja_envio_designacion': row['hoja_envio_designacion'],  # ← NUEVO
+            'hoja_envio_designacion': row['hoja_envio_designacion'],
             'observaciones': row['observaciones'],
             'lugar': row['lugar'],
             'fecha_inicio': row['fecha_inicio'],
@@ -534,8 +591,51 @@ def get_asignaciones():
             'perito_nombre': row['nombre_completo']
         })
     
+    # ==================== OBTENER VACACIONES ====================
+    query_vac = '''
+        SELECT v.*, p.nombre_completo
+        FROM vacaciones v
+        LEFT JOIN peritos p ON v.perito_id = p.id
+        WHERE 1=1
+    '''
+    params_vac = []
+    
+    # Filtro por perito
+    if request.args.get('perito_id'):
+        query_vac += ' AND v.perito_id = ?'
+        params_vac.append(request.args.get('perito_id'))
+    
+    # Filtro por rango de fechas
+    if request.args.get('fecha_desde'):
+        query_vac += ' AND v.fecha_inicio >= ?'
+        params_vac.append(request.args.get('fecha_desde'))
+    
+    if request.args.get('fecha_hasta'):
+        query_vac += ' AND v.fecha_fin <= ?'
+        params_vac.append(request.args.get('fecha_hasta'))
+    
+    query_vac += ' ORDER BY v.fecha_inicio DESC'
+    
+    cursor.execute(query_vac, params_vac)
+    
+    # Agregar vacaciones
+    for row in cursor.fetchall():
+        resultados.append({
+            'id': f"vac_{row['id']}",  # ← ID único para vacaciones
+            'vacacion_id': row['id'],  # ← ID real de la vacación
+            'tipo': 'vacacion',  # ← IDENTIFICADOR DE TIPO
+            'perito_nombre': row['nombre_completo'],
+            'tipo_perito': row['tipo_perito'],
+            'fecha_inicio': row['fecha_inicio'],
+            'fecha_fin': row['fecha_fin'],
+            'dias_totales': row['dias_totales'],
+            'tipo_vacaciones': row['tipo_vacaciones'],
+            'estado': row['estado'],
+            'observaciones': row['observaciones']
+        })
+    
     conn.close()
-    return jsonify(asignaciones)
+    return jsonify(resultados)
 
 
 
@@ -792,15 +892,11 @@ def api_verificar_disponibilidad():
         data.get('asignacion_id')
     )
     
+    # Los conflictos ya vienen como diccionarios desde verificar_disponibilidad
+    # NO necesitamos transformarlos, solo devolverlos
     return jsonify({
         'disponible': disponible,
-        'conflictos': [{
-            'id': c[0],
-            'expediente': c[1],
-            'fecha_inicio': c[2],
-            'fecha_fin': c[3],
-            'observaciones': c[4]
-        } for c in conflictos]
+        'conflictos': conflictos
     })
 
 @app.route('/api/peritos', methods=['GET'])
@@ -1327,6 +1423,189 @@ def descargar_archivo(filename):
     
     return send_file(filepath, as_attachment=True)
 
+
+# ============================================
+# ENDPOINTS PARA EDITAR
+# ============================================
+
+
+
+
+# ============================================
+# ENDPOINTS PARA VACACIONES
+# ============================================
+
+@app.route('/vacaciones')
+def vacaciones():
+    """
+    Página de gestión de vacaciones
+    """
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Obtener todas las vacaciones
+    cursor.execute('''
+        SELECT v.*, p.nombre_completo
+        FROM vacaciones v
+        LEFT JOIN peritos p ON v.perito_id = p.id
+        ORDER BY v.fecha_inicio DESC
+    ''')
+    
+    vacaciones_list = []
+    for row in cursor.fetchall():
+        vacaciones_list.append({
+            'id': row['id'],
+            'perito_id': row['perito_id'],
+            'perito_nombre': row['nombre_completo'],
+            'tipo_perito': row['tipo_perito'],
+            'fecha_inicio': row['fecha_inicio'],
+            'fecha_fin': row['fecha_fin'],
+            'dias_totales': row['dias_totales'],
+            'tipo_vacaciones': row['tipo_vacaciones'],
+            'estado': row['estado'],
+            'observaciones': row['observaciones'],
+            'fecha_registro': row['fecha_registro']
+        })
+    
+    # Estadísticas
+    cursor.execute('SELECT COUNT(*) FROM vacaciones')
+    total_vacaciones = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM vacaciones WHERE estado = "Aprobadas"')
+    aprobadas = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM vacaciones WHERE estado = "Pendientes"')
+    pendientes = cursor.fetchone()[0]
+    
+    conn.close()
+    
+    return render_template('vacaciones.html',
+                         vacaciones=vacaciones_list,
+                         total=total_vacaciones,
+                         aprobadas=aprobadas,
+                         pendientes=pendientes)
+
+@app.route('/api/vacacion', methods=['POST'])
+def crear_vacacion():
+    """
+    Registrar nuevo período de vacaciones
+    """
+    data = request.json
+    
+    # Validar datos requeridos
+    if not all(k in data for k in ('perito_id', 'fecha_inicio', 'fecha_fin')):
+        return jsonify({'error': 'Faltan datos requeridos'}), 400
+    
+    # Calcular días totales
+    from datetime import datetime
+    fecha_inicio = datetime.strptime(data['fecha_inicio'], '%Y-%m-%d')
+    fecha_fin = datetime.strptime(data['fecha_fin'], '%Y-%m-%d')
+    dias_totales = (fecha_fin - fecha_inicio).days + 1
+    
+    # Verificar si el perito ya tiene vacaciones en esas fechas
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT * FROM vacaciones
+        WHERE perito_id = ?
+        AND (
+            (fecha_inicio <= ? AND fecha_fin >= ?) OR
+            (fecha_inicio <= ? AND fecha_fin >= ?) OR
+            (fecha_inicio >= ? AND fecha_fin <= ?)
+        )
+    ''', (data['perito_id'], data['fecha_fin'], data['fecha_inicio'],
+          data['fecha_fin'], data['fecha_fin'], data['fecha_inicio'], data['fecha_fin']))
+    
+    conflictos = cursor.fetchall()
+    
+    if conflictos:
+        conn.close()
+        return jsonify({
+            'error': 'El perito ya tiene vacaciones programadas en estas fechas',
+            'conflictos': conflictos
+        }), 409
+    
+    # Insertar vacaciones
+    cursor.execute('''
+        INSERT INTO vacaciones (
+            perito_id, tipo_perito, fecha_inicio, fecha_fin,
+            dias_totales, tipo_vacaciones, estado, observaciones
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        data['perito_id'],
+        data.get('tipo_perito', ''),
+        data['fecha_inicio'],
+        data['fecha_fin'],
+        dias_totales,
+        data.get('tipo_vacaciones', 'Programadas'),
+        data.get('estado', 'Aprobadas'),
+        data.get('observaciones', '')
+    ))
+    
+    vacacion_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    return jsonify({
+        'success': True,
+        'id': vacacion_id,
+        'dias_totales': dias_totales,
+        'message': 'Vacaciones registradas exitosamente'
+    }), 201
+
+@app.route('/api/vacacion/<int:id>', methods=['GET'])
+def get_vacacion(id):
+    """
+    Obtener detalles de vacaciones
+    """
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT v.*, p.nombre_completo
+        FROM vacaciones v
+        LEFT JOIN peritos p ON v.perito_id = p.id
+        WHERE v.id = ?
+    ''', (id,))
+    
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        return jsonify({
+            'id': row['id'],
+            'perito_id': row['perito_id'],
+            'perito_nombre': row['nombre_completo'],
+            'tipo_perito': row['tipo_perito'],
+            'fecha_inicio': row['fecha_inicio'],
+            'fecha_fin': row['fecha_fin'],
+            'dias_totales': row['dias_totales'],
+            'tipo_vacaciones': row['tipo_vacaciones'],
+            'estado': row['estado'],
+            'observaciones': row['observaciones']
+        })
+    else:
+        return jsonify({'error': 'Vacaciones no encontradas'}), 404
+
+@app.route('/api/vacacion/<int:id>', methods=['DELETE'])
+def eliminar_vacacion(id):
+    """
+    Eliminar registro de vacaciones
+    """
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('DELETE FROM vacaciones WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Vacaciones eliminadas correctamente'
+    })
 
 # ============================================================================
 # INICIALIZACIÓN Y EJECUCIÓN
