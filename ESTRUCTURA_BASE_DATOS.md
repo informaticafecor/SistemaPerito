@@ -1,6 +1,24 @@
+
+✅ 1. NO me importa la versión local de database.db, quiero la del repositorio.
+git restore database.db
+→ Comando seguro si quieres simplemente obtener lo que está en el repo:
+
+git restore database.db
+git pull
+
+
+
+
+
+
 # 🗄️ ESTRUCTURA DE BASE DE DATOS - SistemaPerito
 
 Documentación completa de la base de datos SQLite del sistema.
+
+
+
+
+
 
 ---
 

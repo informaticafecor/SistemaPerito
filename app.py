@@ -507,7 +507,7 @@ def login():
         if not usuario or not password:
             if request.is_json:
                 return jsonify({'success': False, 'error': 'Usuario y contraseña son requeridos'}), 400
-            return render_template('login.html', error='Usuario y contraseña son requeridos')
+            return render_template('auth/login.html', error='Usuario y contraseña son requeridos')
         
         conn = sqlite3.connect('database.db')
         conn.row_factory = sqlite3.Row
@@ -555,7 +555,7 @@ def login():
             # Registrar intento fallido (sin usuario válido)
             if request.is_json:
                 return jsonify({'success': False, 'error': 'Usuario o contraseña incorrectos'}), 401
-            return render_template('login.html', error='Usuario o contraseña incorrectos')
+            return render_template('auth/login.html', error='Usuario o contraseña incorrectos')
     
     return render_template('auth/login.html')
 
@@ -698,9 +698,11 @@ def gestion_usuarios():
         })
     
     # Obtener peritos para el select
-    cursor.execute('SELECT id, nombre_completo, tipo_perito FROM peritos ORDER BY nombre_completo')
-    peritos = [{'id': row['id'], 'nombre': row['nombre_completo'], 'tipo': row['tipo_perito']} for row in cursor.fetchall()]
     
+    
+    cursor.execute('SELECT id, nombre_completo, tipo FROM peritos WHERE estado = "Activo" ORDER BY tipo, nombre_completo')
+    peritos = [{'id': row['id'], 'nombre': row['nombre_completo'], 'tipo': row['tipo']} for row in cursor.fetchall()]
+
     conn.close()
     
     return render_template('admin/usuarios.html', usuarios=usuarios, peritos=peritos)
