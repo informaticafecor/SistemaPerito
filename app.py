@@ -908,75 +908,122 @@ def eliminar_usuario(id):
 # RUTAS PRINCIPALES
 # ============================================================================
 #------------------------------------------------------------------------------------------------------- comienza aagregar nuevos codigos par apginacion
+# NUEVO CODIGO CAMBIADO A ROLES
 
 @app.route('/')
-@login_required 
+@login_required
 def index():
     """
     Página principal - Dashboard con estadísticas generales y paginación
+    Filtra según el rol del usuario
     """
     # Actualizar estados automáticamente
     actualizar_estados_automaticos()
     
     # Obtener número de página actual (por defecto página 1)
     pagina = request.args.get('pagina', 1, type=int)
-    por_pagina = 10  # Número de asignaciones por página
+    por_pagina = 10
     
     conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Obtener estadísticas generales (EXCLUYENDO cancelados del total)
-    cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado != "Cancelado"')
-    total_asignaciones = cursor.fetchone()[0]
+    # Determinar si filtrar por perito
+    perito_id = session.get('perito_id')
+    es_admin = session.get('rol') == 'admin'
     
-    cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Pendiente"')
-    pendientes = cursor.fetchone()[0]
+    # Obtener info del perito si es usuario perito
+    tipo_perito = None
+    if perito_id and not es_admin:
+        cursor.execute('SELECT tipo FROM peritos WHERE id = ?', (perito_id,))
+        result = cursor.fetchone()
+        if result:
+            tipo_perito = result['tipo']
     
-    cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "En Proceso"')
-    en_proceso = cursor.fetchone()[0]
+    # ==================== ESTADÍSTICAS ====================
+    if es_admin:
+        # Admin ve todo
+        cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado != "Cancelado"')
+        total_asignaciones = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Pendiente"')
+        pendientes = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "En Proceso"')
+        en_proceso = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Completado"')
+        completados = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Cancelado"')
+        cancelados = cursor.fetchone()[0]
+    else:
+        # Perito ve solo sus asignaciones
+        cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado != "Cancelado" AND perito_id = ?', (perito_id,))
+        total_asignaciones = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Pendiente" AND perito_id = ?', (perito_id,))
+        pendientes = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "En Proceso" AND perito_id = ?', (perito_id,))
+        en_proceso = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Completado" AND perito_id = ?', (perito_id,))
+        completados = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Cancelado" AND perito_id = ?', (perito_id,))
+        cancelados = cursor.fetchone()[0]
     
-    cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Completado"')
-    completados = cursor.fetchone()[0]
-    
-    cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Cancelado"')
-    cancelados = cursor.fetchone()[0]
-    
-    # Calcular offset para la paginación
+    # ==================== ASIGNACIONES ====================
     offset = (pagina - 1) * por_pagina
     
-    # Obtener asignaciones con paginación
-    cursor.execute('''
-        SELECT 
-            a.id, a.hoja_envio, a.expediente, a.dependencia, 
-            a.tipo_perito, a.tipo_actividad, a.carpeta_fiscal, a.observaciones, a.lugar,
-            a.fecha_inicio, a.fecha_fin, a.perito_asignado, a.perito_id,
-            a.desginacion, a.oficio_desplazamiento, a.estado, a.fecha_registro,
-            p.nombre_completo
-        FROM asignaciones a
-        LEFT JOIN peritos p ON a.perito_id = p.id
-        WHERE a.estado != "Cancelado"
-        ORDER BY a.fecha_registro DESC
-        LIMIT ? OFFSET ?
-    ''', (por_pagina, offset))
+    if es_admin:
+        cursor.execute('''
+            SELECT 
+                a.id, a.hoja_envio, a.expediente, a.dependencia, 
+                a.tipo_perito, a.tipo_actividad, a.carpeta_fiscal, a.observaciones, a.lugar,
+                a.fecha_inicio, a.fecha_fin, a.perito_asignado, a.perito_id,
+                a.desginacion, a.oficio_desplazamiento, a.estado, a.fecha_registro,
+                p.nombre_completo
+            FROM asignaciones a
+            LEFT JOIN peritos p ON a.perito_id = p.id
+            WHERE a.estado != "Cancelado"
+            ORDER BY a.fecha_registro DESC
+            LIMIT ? OFFSET ?
+        ''', (por_pagina, offset))
+    else:
+        cursor.execute('''
+            SELECT 
+                a.id, a.hoja_envio, a.expediente, a.dependencia, 
+                a.tipo_perito, a.tipo_actividad, a.carpeta_fiscal, a.observaciones, a.lugar,
+                a.fecha_inicio, a.fecha_fin, a.perito_asignado, a.perito_id,
+                a.desginacion, a.oficio_desplazamiento, a.estado, a.fecha_registro,
+                p.nombre_completo
+            FROM asignaciones a
+            LEFT JOIN peritos p ON a.perito_id = p.id
+            WHERE a.estado != "Cancelado" AND a.perito_id = ?
+            ORDER BY a.fecha_registro DESC
+            LIMIT ? OFFSET ?
+        ''', (perito_id, por_pagina, offset))
     
     asignaciones_recientes = []
     for row in cursor.fetchall():
         asignaciones_recientes.append({
-            'id': row[0],
-            'hoja_envio': row[1],
-            'expediente': row[2],
-            'dependencia': row[3],
-            'tipo_perito': row[4],
-            'tipo_actividad': row[5],
-            'fecha_inicio': row[9],
-            'fecha_fin': row[10],
-            'perito': row[17] if row[17] else row[11],
-            'estado': row[15],
-            'lugar': row[8]
+            'id': row['id'],
+            'expediente': row['expediente'],
+            'carpeta_fiscal': row['carpeta_fiscal'],
+            'dependencia': row['dependencia'],
+            'tipo_perito': row['tipo_perito'],
+            'tipo_actividad': row['tipo_actividad'],
+            'fecha_inicio': row['fecha_inicio'],
+            'fecha_fin': row['fecha_fin'],
+            'perito': row['nombre_completo'] if row['nombre_completo'] else row['perito_asignado'],
+            'estado': row['estado'],
+            'lugar': row['lugar']
         })
     
     # Calcular total de páginas
-    total_paginas = (total_asignaciones + por_pagina - 1) // por_pagina
+    total_paginas = (total_asignaciones + por_pagina - 1) // por_pagina if total_asignaciones > 0 else 1
     
     conn.close()
     
@@ -989,7 +1036,11 @@ def index():
                          asignaciones=asignaciones_recientes,
                          pagina_actual=pagina,
                          total_paginas=total_paginas,
-                         por_pagina=por_pagina)
+                         por_pagina=por_pagina,
+                         es_admin=es_admin,
+                         tipo_perito=tipo_perito)
+
+
 
 @app.route('/nuevo')
 @login_required  # ← AGREGAR
@@ -1022,12 +1073,32 @@ def nuevo():
     return render_template('core/nuevo.html', peritos=peritos_por_tipo)
 
 @app.route('/buscar')
-@login_required  # ← AGREGAR
+@login_required
 def buscar():
     """
-    Página de búsqueda avanzada
+    Página de búsqueda de asignaciones
     """
-    return render_template('core/buscar.html')
+    tipo_perito = None
+    nombre_perito = None
+    perito_id = session.get('perito_id')
+    es_admin = session.get('rol') == 'admin'
+    
+    if perito_id and not es_admin:
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('SELECT tipo, nombre_completo FROM peritos WHERE id = ?', (perito_id,))
+        result = cursor.fetchone()
+        if result:
+            tipo_perito = result['tipo']
+            nombre_perito = result['nombre_completo']
+        conn.close()
+    
+    return render_template('core/buscar.html', 
+                          es_admin=es_admin, 
+                          tipo_perito=tipo_perito,
+                          nombre_perito=nombre_perito,
+                          perito_id=perito_id)
 
 @app.route('/calendario')
 @login_required  # ← AGREGAR
@@ -1078,16 +1149,20 @@ def reportes():
 # API ENDPOINTS
 # ============================================================================
 
-
 @app.route('/api/asignaciones', methods=['GET'])
+@login_required
 def get_asignaciones():
     """
-    Obtiene todas las asignaciones Y vacaciones con filtros opcionales
-    Query params: estado, perito_id, fecha_desde, fecha_hasta
+    Obtiene asignaciones y vacaciones con filtros
+    Filtra según el rol del usuario
     """
     conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    
+    # Determinar si filtrar por perito
+    perito_id = session.get('perito_id')
+    es_admin = session.get('rol') == 'admin'
     
     # ==================== OBTENER ASIGNACIONES ====================
     query = '''
@@ -1098,13 +1173,18 @@ def get_asignaciones():
     '''
     params = []
     
+    # Filtro por rol (perito solo ve las suyas)
+    if not es_admin and perito_id:
+        query += ' AND a.perito_id = ?'
+        params.append(perito_id)
+    
     # Filtro por estado
     if request.args.get('estado'):
         query += ' AND a.estado = ?'
         params.append(request.args.get('estado'))
     
-    # Filtro por perito
-    if request.args.get('perito_id'):
+    # Filtro por perito (para admin)
+    if request.args.get('perito_id') and es_admin:
         query += ' AND a.perito_id = ?'
         params.append(request.args.get('perito_id'))
     
@@ -1123,11 +1203,10 @@ def get_asignaciones():
     
     resultados = []
     
-    # Agregar asignaciones
     for row in cursor.fetchall():
         resultados.append({
             'id': row['id'],
-            'tipo': 'asignacion',  # ← IDENTIFICADOR DE TIPO
+            'tipo': 'asignacion',
             'hoja_envio': row['hoja_envio'],
             'expediente': row['expediente'],
             'dependencia': row['dependencia'],
@@ -1156,8 +1235,13 @@ def get_asignaciones():
     '''
     params_vac = []
     
-    # Filtro por perito
-    if request.args.get('perito_id'):
+    # Filtro por rol (perito solo ve las suyas)
+    if not es_admin and perito_id:
+        query_vac += ' AND v.perito_id = ?'
+        params_vac.append(perito_id)
+    
+    # Filtro por perito (para admin)
+    if request.args.get('perito_id') and es_admin:
         query_vac += ' AND v.perito_id = ?'
         params_vac.append(request.args.get('perito_id'))
     
@@ -1174,12 +1258,11 @@ def get_asignaciones():
     
     cursor.execute(query_vac, params_vac)
     
-    # Agregar vacaciones
     for row in cursor.fetchall():
         resultados.append({
-            'id': f"vac_{row['id']}",  # ← ID único para vacaciones
-            'vacacion_id': row['id'],  # ← ID real de la vacación
-            'tipo': 'vacacion',  # ← IDENTIFICADOR DE TIPO
+            'id': f"vac_{row['id']}",
+            'vacacion_id': row['id'],
+            'tipo': 'vacacion',
             'perito_nombre': row['nombre_completo'],
             'tipo_perito': row['tipo_perito'],
             'fecha_inicio': row['fecha_inicio'],
@@ -1536,6 +1619,7 @@ def get_estadisticas():
     })
 
 @app.route('/api/buscar', methods=['GET'])
+@login_required
 def buscar_asignaciones():
     """
     Búsqueda avanzada de asignaciones
@@ -1548,7 +1632,12 @@ def buscar_asignaciones():
         return jsonify([])
     
     conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    
+    # Determinar si filtrar por perito
+    perito_id = session.get('perito_id')
+    es_admin = session.get('rol') == 'admin'
     
     # Construir query según el campo
     if campo == 'todos':
@@ -1556,51 +1645,97 @@ def buscar_asignaciones():
             SELECT a.*, p.nombre_completo
             FROM asignaciones a
             LEFT JOIN peritos p ON a.perito_id = p.id
-            WHERE a.hoja_envio LIKE ? 
-            OR a.expediente LIKE ?
-            OR a.carpeta_fiscal LIKE ?
-            OR a.lugar LIKE ?
-            OR p.nombre_completo LIKE ?
-            ORDER BY a.fecha_inicio DESC
+            WHERE a.estado != 'Cancelado'
+            AND (
+                a.hoja_envio LIKE ? 
+                OR a.expediente LIKE ?
+                OR a.carpeta_fiscal LIKE ?
+                OR a.dependencia LIKE ?
+                OR a.lugar LIKE ?
+                OR a.observaciones LIKE ?
+                OR p.nombre_completo LIKE ?
+                OR a.perito_asignado LIKE ?
+            )
         '''
-        params = [f'%{termino}%'] * 5
-    else:
-        query = f'''
+        params = [f'%{termino}%'] * 8
+    elif campo == 'expediente':
+        query = '''
             SELECT a.*, p.nombre_completo
             FROM asignaciones a
             LEFT JOIN peritos p ON a.perito_id = p.id
-            WHERE a.{campo} LIKE ?
-            ORDER BY a.fecha_inicio DESC
+            WHERE a.estado != 'Cancelado' AND a.expediente LIKE ?
         '''
         params = [f'%{termino}%']
+    elif campo == 'carpeta_fiscal':
+        query = '''
+            SELECT a.*, p.nombre_completo
+            FROM asignaciones a
+            LEFT JOIN peritos p ON a.perito_id = p.id
+            WHERE a.estado != 'Cancelado' AND a.carpeta_fiscal LIKE ?
+        '''
+        params = [f'%{termino}%']
+    elif campo == 'dependencia':
+        query = '''
+            SELECT a.*, p.nombre_completo
+            FROM asignaciones a
+            LEFT JOIN peritos p ON a.perito_id = p.id
+            WHERE a.estado != 'Cancelado' AND a.dependencia LIKE ?
+        '''
+        params = [f'%{termino}%']
+    elif campo == 'lugar':
+        query = '''
+            SELECT a.*, p.nombre_completo
+            FROM asignaciones a
+            LEFT JOIN peritos p ON a.perito_id = p.id
+            WHERE a.estado != 'Cancelado' AND a.lugar LIKE ?
+        '''
+        params = [f'%{termino}%']
+    elif campo == 'perito':
+        query = '''
+            SELECT a.*, p.nombre_completo
+            FROM asignaciones a
+            LEFT JOIN peritos p ON a.perito_id = p.id
+            WHERE a.estado != 'Cancelado' 
+            AND (p.nombre_completo LIKE ? OR a.perito_asignado LIKE ?)
+        '''
+        params = [f'%{termino}%', f'%{termino}%']
+    else:
+        query = '''
+            SELECT a.*, p.nombre_completo
+            FROM asignaciones a
+            LEFT JOIN peritos p ON a.perito_id = p.id
+            WHERE a.estado != 'Cancelado'
+        '''
+        params = []
+    
+    # Filtrar por rol (perito solo ve las suyas)
+    if not es_admin and perito_id:
+        query += ' AND a.perito_id = ?'
+        params.append(perito_id)
+    
+    query += ' ORDER BY a.fecha_registro DESC'
     
     cursor.execute(query, params)
     
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    # ... código del query ...
-    
     resultados = []
     for row in cursor.fetchall():
-        # Calcular índice correcto: nombre_completo es la última columna
-        # Total de columnas en asignaciones: 17 (con archivos_adjuntos)
-        # nombre_completo es el índice 17
         resultados.append({
-            'id': row[0],
-            'hoja_envio': row[1],
-            'expediente': row[2],
-            'dependencia': row[3],
-            'tipo_perito': row[4],
-            'carpeta_fiscal': row[5],
-            'observaciones': row[6],
-            'lugar': row[7],
-            'fecha_inicio': row[8],
-            'fecha_fin': row[9],
-            'perito_asignado': row[10],
-            'desginacion': row[12],
-            'estado': row[14],
-            'perito_nombre': row[17] if len(row) > 17 else row[10]  # nombre_completo o perito_asignado
+            'id': row['id'],
+            'hoja_envio': row['hoja_envio'],
+            'expediente': row['expediente'],
+            'carpeta_fiscal': row['carpeta_fiscal'],
+            'dependencia': row['dependencia'],
+            'tipo_perito': row['tipo_perito'],
+            'tipo_actividad': row['tipo_actividad'],
+            'observaciones': row['observaciones'],
+            'lugar': row['lugar'],
+            'fecha_inicio': row['fecha_inicio'],
+            'fecha_fin': row['fecha_fin'],
+            'perito_asignado': row['perito_asignado'],
+            'desginacion': row['desginacion'],
+            'estado': row['estado'],
+            'perito_nombre': row['nombre_completo'],
+            'perito_id': row['perito_id']
         })
     
     conn.close()

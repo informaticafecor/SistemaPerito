@@ -65,15 +65,18 @@
                     <a href="/" class="px-3 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition text-sm">
                         <i class="fas fa-home mr-1"></i>Dashboard
                     </a>
+                    {% if session.rol == 'admin' %}
                     <a href="/nuevo" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-plus mr-1"></i>Nueva
                     </a>
+                    {% endif %}
                     <a href="/buscar" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-search mr-1"></i>Buscar
                     </a>
                     <a href="/calendario" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-calendar mr-1"></i>Calendario
                     </a>
+                    {% if session.rol == 'admin' %}
                     <a href="/peritos" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-users mr-1"></i>Peritos
                     </a>
@@ -83,7 +86,6 @@
                     <a href="/vacaciones" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-umbrella-beach mr-1"></i>Vacaciones
                     </a>
-                    {% if session.rol == 'admin' %}
                     <a href="/usuarios" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-users-cog mr-1"></i>Usuarios
                     </a>
@@ -92,9 +94,14 @@
                 
                 <!-- Usuario y Salir -->
                 <div class="flex items-center space-x-3 border-l border-blue-700 pl-4">
-                    <span class="text-sm text-blue-200 hidden md:block">
-                        <i class="fas fa-user-circle mr-1"></i>{{ session.nombre_completo or session.usuario }}
-                    </span>
+                    <div class="text-right hidden md:block">
+                        <p class="text-sm font-semibold">{{ session.nombre_completo or session.usuario }}</p>
+                        {% if tipo_perito %}
+                        <p class="text-xs text-blue-300">Perito {{ tipo_perito }}</p>
+                        {% elif session.rol == 'admin' %}
+                        <p class="text-xs text-blue-300">Administrador</p>
+                        {% endif %}
+                    </div>
                     <a href="/logout" class="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition text-sm font-semibold">
                         <i class="fas fa-sign-out-alt mr-1"></i>Salir
                     </a>
@@ -102,6 +109,7 @@
             </div>
         </div>
     </nav>
+
 
     <!-- Contenido Principal -->
     <div class="container mx-auto px-4 py-8">
@@ -159,12 +167,14 @@
                     </div>
 
                     <!-- Filtro por Tipo de Perito -->
+                    <!-- Filtro por Tipo de Perito -->
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             <i class="fas fa-user-tie text-green-600 mr-2"></i>Tipo de Perito
                         </label>
+                        {% if session.rol == 'admin' %}
                         <select id="filtroTipo" 
-                                onchange="aplicarFiltros()"
+                                onchange="cargarPeritosPorTipo(); aplicarFiltros()"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
                             <option value="">Todos los tipos</option>
                             <option value="Informático">Informático</option>
@@ -172,6 +182,13 @@
                             <option value="Antropólogo">Antropólogo</option>
                             <option value="Contable">Contable</option>
                         </select>
+                        {% else %}
+                        <input type="text" 
+                               value="{{ tipo_perito }}" 
+                               readonly
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed">
+                        <input type="hidden" id="filtroTipo" value="{{ tipo_perito }}">
+                        {% endif %}
                     </div>
 
                     <!-- Filtro por Perito Específico -->
@@ -179,11 +196,19 @@
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             <i class="fas fa-user text-orange-600 mr-2"></i>Perito Específico
                         </label>
+                        {% if session.rol == 'admin' %}
                         <select id="filtroPerito" 
                                 onchange="aplicarFiltros()"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
                             <option value="">Todos los peritos</option>
                         </select>
+                        {% else %}
+                        <input type="text" 
+                               value="{{ nombre_perito }}" 
+                               readonly
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed">
+                        <input type="hidden" id="filtroPerito" value="{{ perito_id }}">
+                        {% endif %}
                     </div>
 
                     <!-- Fecha Desde -->
@@ -230,11 +255,13 @@
                             class="px-6 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition">
                         <i class="fas fa-eraser mr-2"></i>Limpiar Filtros
                     </button>
+                    {% if session.rol == 'admin' %}
                     <button onclick="exportarResultados()" 
                             id="btnExportar"
                             class="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
                         <i class="fas fa-file-excel mr-2"></i>Exportar a Excel
                     </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -289,8 +316,9 @@
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hoja Envío</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Expediente</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Carpeta Fiscal</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Dependencia</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Perito</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tipo</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Fecha Inicio</th>
@@ -401,13 +429,12 @@
          * Aplicar filtros avanzados
          */
         function aplicarFiltros() {
-            // Mostrar indicador de carga
             mostrarCargando();
             
-            // Construir URL con filtros
             const params = new URLSearchParams();
             
             const estado = document.getElementById('filtroEstado').value;
+            const tipo = document.getElementById('filtroTipo').value;
             const peritoId = document.getElementById('filtroPerito').value;
             const fechaDesde = document.getElementById('fechaDesde').value;
             const fechaHasta = document.getElementById('fechaHasta').value;
@@ -420,8 +447,16 @@
             fetch(`/api/asignaciones?${params.toString()}`)
                 .then(response => response.json())
                 .then(data => {
-                    resultadosActuales = data;
-                    mostrarResultados(data);
+                    // Filtrar solo asignaciones (no vacaciones)
+                    let resultados = data.filter(item => item.tipo === 'asignacion');
+                    
+                    // Filtrar por tipo de perito (solo en cliente para admin)
+                    if (tipo) {
+                        resultados = resultados.filter(a => a.tipo_perito === tipo);
+                    }
+                    
+                    resultadosActuales = resultados;
+                    mostrarResultados(resultados);
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -429,7 +464,6 @@
                     alert('Error al aplicar filtros');
                 });
         }
-
         /**
          * Mostrar indicador de carga
          */
@@ -475,12 +509,17 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         #${asignacion.id}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        ${asignacion.hoja_envio || '-'}
-                    </td>
+
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         ${asignacion.expediente || '-'}
                     </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        ${asignacion.carpeta_fiscal || '-'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        ${asignacion.dependencia || '-'}
+                    </td>
+
                     <td class="px-6 py-4 text-sm text-gray-900">
                         <div class="font-medium truncate max-w-xs" title="${asignacion.perito_nombre || asignacion.perito_asignado}">
                             ${(asignacion.perito_nombre || asignacion.perito_asignado || '-').substring(0, 25)}...
@@ -514,6 +553,7 @@
                                 title="Ver detalle">
                             <i class="fas fa-eye"></i>
                         </button>
+                        
                         <button onclick="editarAsignacion(${asignacion.id})" 
                                 class="text-green-600 hover:text-green-800" 
                                 title="Editar">

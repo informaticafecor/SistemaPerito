@@ -54,15 +54,18 @@
                     <a href="/" class="px-3 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition text-sm">
                         <i class="fas fa-home mr-1"></i>Dashboard
                     </a>
+                    {% if session.rol == 'admin' %}
                     <a href="/nuevo" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-plus mr-1"></i>Nueva
                     </a>
+                    {% endif %}
                     <a href="/buscar" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-search mr-1"></i>Buscar
                     </a>
                     <a href="/calendario" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-calendar mr-1"></i>Calendario
                     </a>
+                    {% if session.rol == 'admin' %}
                     <a href="/peritos" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-users mr-1"></i>Peritos
                     </a>
@@ -72,7 +75,6 @@
                     <a href="/vacaciones" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-umbrella-beach mr-1"></i>Vacaciones
                     </a>
-                    {% if session.rol == 'admin' %}
                     <a href="/usuarios" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-users-cog mr-1"></i>Usuarios
                     </a>
@@ -81,9 +83,14 @@
                 
                 <!-- Usuario y Salir -->
                 <div class="flex items-center space-x-3 border-l border-blue-700 pl-4">
-                    <span class="text-sm text-blue-200 hidden md:block">
-                        <i class="fas fa-user-circle mr-1"></i>{{ session.nombre_completo or session.usuario }}
-                    </span>
+                    <div class="text-right hidden md:block">
+                        <p class="text-sm font-semibold">{{ session.nombre_completo or session.usuario }}</p>
+                        {% if tipo_perito %}
+                        <p class="text-xs text-blue-300">Perito {{ tipo_perito }}</p>
+                        {% elif session.rol == 'admin' %}
+                        <p class="text-xs text-blue-300">Administrador</p>
+                        {% endif %}
+                    </div>
                     <a href="/logout" class="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition text-sm font-semibold">
                         <i class="fas fa-sign-out-alt mr-1"></i>Salir
                     </a>
@@ -97,13 +104,24 @@
     <div class="container mx-auto px-4 py-8">
         
         <!-- Título de la página -->
-        <div class="mb-8 fade-in">
-            <h2 class="text-3xl font-bold text-gray-800 mb-2">
-                <i class="fas fa-tachometer-alt text-blue-900 mr-3"></i>Dashboard Principal
+        <!-- Encabezado del Dashboard -->
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold text-gray-800">
+                <i class="fas fa-chart-line text-blue-600 mr-3"></i>
+                {% if session.rol == 'admin' %}
+                Dashboard Principal
+                {% else %}
+                Mis Asignaciones
+                {% endif %}
             </h2>
-            <p class="text-gray-600">Vista general del sistema de gestión de peritos</p>
+            <p class="text-gray-600 mt-1">
+                {% if session.rol == 'admin' %}
+                Vista general del sistema de gestión de peritos
+                {% else %}
+                Bienvenido {{ session.nombre_completo }}, aquí puedes ver tus asignaciones
+                {% endif %}
+            </p>
         </div>
-
         <!-- Tarjetas de Estadísticas -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             
@@ -175,6 +193,7 @@
         
         <!-- Acciones Rápidas -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {% if session.rol == 'admin' %}
             <a href="/nuevo" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-lg p-6 hover:shadow-xl transition transform hover:scale-105">
                 <div class="flex items-center justify-between">
                     <div>
@@ -184,7 +203,7 @@
                     <i class="fas fa-plus-circle text-5xl text-blue-200"></i>
                 </div>
             </a>
-
+            {% endif %}   
             <a href="/buscar" class="bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl shadow-lg p-6 hover:shadow-xl transition transform hover:scale-105">
                 <div class="flex items-center justify-between">
                     <div>
@@ -194,7 +213,7 @@
                     <i class="fas fa-search text-5xl text-purple-200"></i>
                 </div>
             </a>
-
+            {% if session.rol == 'admin' %}
             <a href="/reportes" class="bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl shadow-lg p-6 hover:shadow-xl transition transform hover:scale-105">
                 <div class="flex items-center justify-between">
                     <div>
@@ -204,6 +223,7 @@
                     <i class="fas fa-chart-line text-5xl text-green-200"></i>
                 </div>
             </a>
+            {% endif %}
         </div>
 
         <!-- Tabla de Asignaciones Recientes -->
@@ -223,8 +243,8 @@
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hoja Envío</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Expediente</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Carpeta Fiscal</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Dependencia</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Perito</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Fecha Inicio</th>
@@ -242,12 +262,13 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                     #{{ asignacion.id }}
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                    {{ asignacion.hoja_envio or '-' }}
-                                </td>
+
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                     {{ asignacion.expediente or '-' }}
                                     
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                    {{ asignacion.carpeta_fiscal or '-' }}
                                 </td>
                                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                     <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-semibold">
