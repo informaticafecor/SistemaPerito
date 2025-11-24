@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Actividades - Sistema Perito</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Navegación Principal -->
+    <nav class="bg-blue-900 text-white shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-3">
+                <!-- Logo y Título -->
+                <div class="flex items-center space-x-3">
+                    <img src="{{ url_for('static', filename='imagenes/logompo.png') }}" alt="Logo" class="w-10 h-10 object-contain">
+                    <div class="hidden md:block">
+                        <h1 class="text-xl font-bold">SistemaPerito</h1>
+                        <p class="text-xs text-blue-200">Gestión de Asignaciones</p>
+                    </div>
+                </div>
+                
+                <!-- Menú de navegación -->
+                <div class="flex items-center space-x-1">
+                    <a href="/" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-home mr-1"></i>Dashboard
+                    </a>
+                    <a href="/buscar" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-search mr-1"></i>Buscar
+                    </a>
+                    <a href="/calendario" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-calendar mr-1"></i>Calendario
+                    </a>
+                    <a href="/mis-actividades" class="px-3 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition text-sm">
+                        <i class="fas fa-clipboard-list mr-1"></i>Mis Actividades
+                    </a>
+                </div>
+                
+                <!-- Usuario y Salir -->
+                <div class="flex items-center space-x-3 border-l border-blue-700 pl-4">
+                    <div class="text-right hidden md:block">
+                        <p class="text-sm font-semibold">{{ perito_nombre }}</p>
+                        <p class="text-xs text-blue-300">Perito {{ tipo_perito }}</p>
+                    </div>
+                    <a href="/logout" class="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition text-sm font-semibold">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Salir
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <div class="container mx-auto px-4 py-8">
+        
+        <!-- Encabezado -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-800">
+                    <i class="fas fa-clipboard-list text-blue-600 mr-3"></i>
+                    Mis Actividades
+                </h2>
+                <p class="text-gray-600 mt-1">Registra tus diligencias, juicios orales y otras actividades diarias</p>
+            </div>
+            <button onclick="mostrarModalNueva()" 
+                    class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition shadow-lg">
+                <i class="fas fa-plus mr-2"></i>Nueva Actividad
+            </button>
+        </div>
+
+        <!-- Estadísticas rápidas -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+                <p class="text-sm font-semibold text-gray-600 uppercase">Total Actividades</p>
+                <p class="text-3xl font-bold text-gray-900 mt-2">{{ actividades|length }}</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+                <p class="text-sm font-semibold text-gray-600 uppercase">Este Mes</p>
+                <p class="text-3xl font-bold text-green-600 mt-2" id="actividadesMes">0</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500">
+                <p class="text-sm font-semibold text-gray-600 uppercase">Esta Semana</p>
+                <p class="text-3xl font-bold text-purple-600 mt-2" id="actividadesSemana">0</p>
+            </div>
+        </div>
+
+        <!-- Tabla de Actividades -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-500">
+                <h3 class="text-xl font-bold text-white">
+                    <i class="fas fa-list mr-2"></i>Historial de Actividades
+                </h3>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Carpeta Fiscal</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tipo de Actividad</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Dependencia</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Fecha Inicio</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Fecha Fin</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Horario</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="tablaActividades">
+                        {% for actividad in actividades %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{{ actividad.id }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ actividad.carpeta_fiscal or '-' }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-800 font-semibold">{{ actividad.tipo_actividad }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-600">{{ actividad.dependencia or '-' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ actividad.fecha_inicio }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ actividad.fecha_fin }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {% if actividad.hora_inicio %}
+                                {{ actividad.hora_inicio }} - {{ actividad.hora_fin }}
+                                {% else %}
+                                Todo el día
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                                <button onclick="verDetalle({{ actividad.id }})" 
+                                        class="text-blue-600 hover:text-blue-800" title="Ver detalle">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button onclick="eliminar({{ actividad.id }})" 
+                                        class="text-red-600 hover:text-red-800" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="px-6 py-12 text-center">
+                                <i class="fas fa-clipboard text-6xl text-gray-300 mb-4"></i>
+                                <p class="text-gray-500">No has registrado actividades aún</p>
+                                <button onclick="mostrarModalNueva()" 
+                                        class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                    Registrar primera actividad
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Nueva Actividad -->
+    <div id="modalActividad" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">    
+        <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full my-8">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex justify-between items-center rounded-t-xl">
+                <h3 class="text-xl font-bold text-white">
+                    <i class="fas fa-plus-circle mr-2"></i>Registrar Nueva Actividad
+                </h3>
+                <button onclick="cerrarModal()" class="text-white hover:text-gray-200">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <form id="formActividad" class="p-6 space-y-6">
+                
+                <!-- Información del Caso -->
+                <div class="border-b pb-4">
+                    <h4 class="text-lg font-bold text-gray-700 mb-4">
+                        <i class="fas fa-folder-open text-blue-600 mr-2"></i>Información del Caso
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Dependencia</label>
+                            <input type="text" id="dependencia"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                   placeholder="Ej: Fiscalía Provincial Penal de Lima">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Carpeta Fiscal</label>
+                            <input type="text" id="carpeta_fiscal"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                   placeholder="Ej: 1234-2024-0">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Denominación</label>
+                            <input type="text" id="denominacion"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                   placeholder="Ej: Caso por delito informático">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selección de Perito (bloqueado) -->
+                <div class="border-b pb-4">
+                    <h4 class="text-lg font-bold text-gray-700 mb-4">
+                        <i class="fas fa-user-tie text-green-600 mr-2"></i>Información del Perito
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Tipo de Perito <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" value="{{ tipo_perito }}" readonly
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Perito Asignado <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" value="{{ perito_nombre }}" readonly
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tipo de Actividad -->
+                <div class="border-b pb-4">
+                    <h4 class="text-lg font-bold text-gray-700 mb-4">
+                        <i class="fas fa-tasks text-purple-600 mr-2"></i>Detalles de la Actividad
+                    </h4>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Tipo de Actividad <span class="text-red-500">*</span>
+                            </label>
+                            <select id="tipo_actividad" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="">Seleccione una actividad</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Apoyo Técnico (Opcional)</label>
+                            <select id="apoyo_tecnico"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="">Sin apoyo técnico</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Observaciones / Descripción del Trabajo</label>
+                            <textarea id="observaciones" rows="3"
+                                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                      placeholder="Describe brevemente la actividad realizada..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fechas y Horarios -->
+                <div class="border-b pb-4">
+                    <h4 class="text-lg font-bold text-gray-700 mb-4">
+                        <i class="fas fa-calendar-alt text-orange-600 mr-2"></i>Fechas y Horarios
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Fecha de Inicio <span class="text-red-500">*</span>
+                            </label>
+                            <input type="date" id="fecha_inicio" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Fecha de Fin <span class="text-red-500">*</span>
+                            </label>
+                            <input type="date" id="fecha_fin" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Hora de Inicio (Opcional)</label>
+                            <input type="time" id="hora_inicio"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <p class="text-xs text-gray-500 mt-1">Deja en blanco si es todo el día</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Hora de Fin (Opcional)</label>
+                            <input type="time" id="hora_fin"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Archivos Adjuntos -->
+                <div>
+                    <h4 class="text-lg font-bold text-gray-700 mb-4">
+                        <i class="fas fa-paperclip text-red-600 mr-2"></i>Archivos Adjuntos (Opcional)
+                    </h4>
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                        <p class="text-gray-600 mb-2">Arrastra archivos aquí o haz clic para seleccionar</p>
+                        <input type="file" id="archivos" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                               class="hidden">
+                        <button type="button" onclick="document.getElementById('archivos').click()"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Seleccionar Archivos
+                        </button>
+                        <p class="text-xs text-gray-500 mt-2">PDF, Word, imágenes (Máx. 10MB por archivo)</p>
+                    </div>
+                    <div id="listaArchivos" class="mt-3 space-y-2"></div>
+                </div>
+
+                <!-- Botones -->
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" onclick="cerrarModal()" 
+                            class="px-6 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-save mr-2"></i>Registrar Actividad
+                    </button>
+                </div>
+            </form>
+        </div>
+        </div>
+    </div>
+
+    <!-- Modal: Detalle de Actividad -->
+    <div id="modalDetalle" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex justify-between items-center rounded-t-xl">
+                <h3 class="text-xl font-bold text-white">
+                    <i class="fas fa-info-circle mr-2"></i>Detalle de Actividad
+                </h3>
+                <button onclick="cerrarModalDetalle()" class="text-white hover:text-gray-200">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div id="contenidoDetalle" class="p-6">
+                <!-- Se llenará con JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tipoPerito = "{{ tipo_perito }}";
+        
+        // Actividades por tipo de perito
+        const actividadesPorTipo = {
+            'Informático': [
+                'Diligencia de deslacrado',
+                'Diligencia de extracción',
+                'Diligencia de visualización',
+                'Diligencia de sustentación de pericia',
+                'Diligencia de juramentación'
+            ],
+            'Contable': [
+                'Juramentación',
+                'Mesas de Trabajo',
+                'Diligencias',
+                'Juicio Oral'
+            ],
+            'Acústico': [
+                'Juramentación',
+                'Post Operativo',
+                'Diligencias',
+                'Juicio Oral'
+            ],
+            'Antropólogo': [
+                'Diligencias de reconstrucción de los hechos',
+                'Estudio de restos óseos y análisis de traumatismos',
+                'Juicio Oral',
+                'Asesoramiento a los fiscales'
+            ]
+        };
+
+        // Apoyos técnicos por tipo de perito
+        const apoyosPorTipo = {
+            'Informático': [
+                'JORGE SALCEDO ROJAS',
+                'HENRRY JHON ANDIA CANCHI',
+                'MARCO ASTOPILCO MALAGA'
+            ],
+            'Contable': [
+                'NEYRA AYBAR ELTON RUBEN',
+                'NATALI MERCEDES RODRIGUEZ SAAVEDRA',
+                'GINO ARTURO BERROSPI AQUINO',
+                'LUIS ANGEL RODRIGUEZ BRIONES',
+                'ANGELA ROXANA CALDERON BUSTAMANTE'
+            ],
+            'Acústico': [
+                'CESAR TIRADO TELLO',
+                'MANUEL CHRISTIAN FAJARDO TAMAYO',
+                'JOSE ARMANDO ARANGO PONTE'
+            ],
+            'Antropólogo': [
+                'RICHAR APAZA VILCA',
+                'LOURDES EDITH MOZO CASTILLO',
+                'JENNY SHIRLEY VEGUSTTI CHAMA',
+                'ULDA ORIUNDO CUADROS'
+            ]
+        };
+
+
+        // Cargar actividades en el select
+        // Cargar actividades y apoyos en los selects
+        function cargarActividades() {
+            const selectActividades = document.getElementById('tipo_actividad');
+            const selectApoyos = document.getElementById('apoyo_tecnico');
+            
+            const actividades = actividadesPorTipo[tipoPerito] || [];
+            const apoyos = apoyosPorTipo[tipoPerito] || [];
+            
+            // Cargar actividades
+            selectActividades.innerHTML = '<option value="">Seleccione una actividad</option>';
+            actividades.forEach(act => {
+                selectActividades.innerHTML += `<option value="${act}">${act}</option>`;
+            });
+            
+            // Cargar apoyos técnicos
+            selectApoyos.innerHTML = '<option value="">Sin apoyo técnico</option>';
+            apoyos.forEach(apoyo => {
+                selectApoyos.innerHTML += `<option value="${apoyo}">${apoyo}</option>`;
+            });
+        }
+
+        function mostrarModalNueva() {
+            cargarActividades();
+            document.getElementById('formActividad').reset();
+            document.getElementById('listaArchivos').innerHTML = '';
+            document.getElementById('modalActividad').classList.remove('hidden');
+        }
+
+        function cerrarModal() {
+            document.getElementById('modalActividad').classList.add('hidden');
+        }
+
+        function cerrarModalDetalle() {
+            document.getElementById('modalDetalle').classList.add('hidden');
+        }
+
+        // Mostrar archivos seleccionados
+        document.getElementById('archivos').addEventListener('change', function() {
+            const lista = document.getElementById('listaArchivos');
+            lista.innerHTML = '';
+            
+            Array.from(this.files).forEach(file => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between bg-gray-50 p-2 rounded';
+                div.innerHTML = `
+                    <span class="text-sm text-gray-700"><i class="fas fa-file mr-2"></i>${file.name}</span>
+                    <span class="text-xs text-gray-500">${(file.size / 1024).toFixed(2)} KB</span>
+                `;
+                lista.appendChild(div);
+            });
+        });
+
+        // Enviar formulario
+        // Enviar formulario
+        document.getElementById('formActividad').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Validar campos requeridos
+            if (!document.getElementById('tipo_actividad').value || 
+                !document.getElementById('fecha_inicio').value || 
+                !document.getElementById('fecha_fin').value) {
+                alert('⚠️ Por favor completa todos los campos obligatorios');
+                return;
+            }
+            
+            const data = {
+                dependencia: document.getElementById('dependencia').value,
+                carpeta_fiscal: document.getElementById('carpeta_fiscal').value,
+                denominacion: document.getElementById('denominacion').value,
+                tipo_actividad: document.getElementById('tipo_actividad').value,
+                apoyo_tecnico: document.getElementById('apoyo_tecnico').value,
+                observaciones: document.getElementById('observaciones').value,
+                fecha_inicio: document.getElementById('fecha_inicio').value,
+                fecha_fin: document.getElementById('fecha_fin').value,
+                hora_inicio: document.getElementById('hora_inicio').value,
+                hora_fin: document.getElementById('hora_fin').value
+            };
+            
+            fetch('/api/actividad', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('✅ Actividad registrada exitosamente');
+                    location.reload();
+                } else {
+                    alert('❌ Error: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error al registrar actividad');
+            });
+        });
+
+       
+        function verDetalle(id) {
+            fetch(`/api/actividad/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('contenidoDetalle').innerHTML = `
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-600">Dependencia</p>
+                                    <p class="text-gray-800">${data.dependencia || '-'}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-600">Carpeta Fiscal</p>
+                                    <p class="text-gray-800">${data.carpeta_fiscal || '-'}</p>
+                                </div>
+                                <div class="col-span-2">
+                                    <p class="text-sm font-semibold text-gray-600">Denominación</p>
+                                    <p class="text-gray-800">${data.denominacion || '-'}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-600">Tipo de Actividad</p>
+                                    <p class="text-gray-800 font-bold">${data.tipo_actividad}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-600">Apoyo Técnico</p>
+                                    <p class="text-gray-800">${data.apoyo_tecnico || '-'}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-600">Fecha Inicio</p>
+                                    <p class="text-gray-800">${data.fecha_inicio}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-600">Fecha Fin</p>
+                                    <p class="text-gray-800">${data.fecha_fin}</p>
+                                </div>
+                                <div class="col-span-2">
+                                    <p class="text-sm font-semibold text-gray-600">Horario</p>
+                                    <p class="text-gray-800">${data.hora_inicio ? data.hora_inicio + ' - ' + data.hora_fin : 'Todo el día'}</p>
+                                </div>
+                                <div class="col-span-2">
+                                    <p class="text-sm font-semibold text-gray-600">Observaciones</p>
+                                    <p class="text-gray-800">${data.observaciones || '-'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('modalDetalle').classList.remove('hidden');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ Error al cargar detalle');
+                });
+        }
+
+        function eliminar(id) {
+            if (confirm('¿Estás seguro de eliminar esta actividad?')) {
+                fetch(`/api/actividad/${id}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        alert('✅ Actividad eliminada');
+                        location.reload();
+                    } else {
+                        alert('❌ Error: ' + result.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ Error al eliminar');
+                });
+            }
+        }
+        // Calcular estadísticas
+        window.addEventListener('load', function() {
+            const hoy = new Date();
+            const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+            const inicioSemana = new Date(hoy.setDate(hoy.getDate() - hoy.getDay()));
+            
+            let actMes = 0, actSemana = 0;
+            
+            {% for actividad in actividades %}
+            const fecha = new Date('{{ actividad.fecha_inicio }}');
+            if (fecha >= inicioMes) actMes++;
+            if (fecha >= inicioSemana) actSemana++;
+            {% endfor %}
+            
+            document.getElementById('actividadesMes').textContent = actMes;
+            document.getElementById('actividadesSemana').textContent = actSemana;
+        });
+    </script>
+</body>
+</html>
