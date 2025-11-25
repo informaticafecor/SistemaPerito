@@ -154,9 +154,9 @@
     </div>
 
     <!-- Modal: Nueva Actividad -->
-    <div id="modalActividad" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen p-4">    
-        <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full my-8">
+    <div id="modalActividad" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" onclick="cerrarModalClickAfuera(event, 'modalActividad')">
+        <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full my-8" onclick="event.stopPropagation()">
             <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex justify-between items-center rounded-t-xl">
                 <h3 class="text-xl font-bold text-white">
                     <i class="fas fa-plus-circle mr-2"></i>Registrar Nueva Actividad
@@ -319,8 +319,8 @@
     </div>
 
     <!-- Modal: Detalle de Actividad -->
-    <div id="modalDetalle" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full">
+    <div id="modalDetalle" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="cerrarModalClickAfuera(event, 'modalDetalle')">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full" onclick="event.stopPropagation()">
             <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex justify-between items-center rounded-t-xl">
                 <h3 class="text-xl font-bold text-white">
                     <i class="fas fa-info-circle mr-2"></i>Detalle de Actividad
@@ -335,8 +335,10 @@
         </div>
     </div>
 
+
     <script>
         const tipoPerito = "{{ tipo_perito }}";
+        let archivosSeleccionados = []; // Variable global para archivos del formulario
         
         // Actividades por tipo de perito
         const actividadesPorTipo = {
@@ -394,8 +396,6 @@
             ]
         };
 
-
-        // Cargar actividades en el select
         // Cargar actividades y apoyos en los selects
         function cargarActividades() {
             const selectActividades = document.getElementById('tipo_actividad');
@@ -420,40 +420,66 @@
         function mostrarModalNueva() {
             cargarActividades();
             document.getElementById('formActividad').reset();
+            archivosSeleccionados = [];
             document.getElementById('listaArchivos').innerHTML = '';
             document.getElementById('modalActividad').classList.remove('hidden');
         }
 
         function cerrarModal() {
             document.getElementById('modalActividad').classList.add('hidden');
+            archivosSeleccionados = [];
+            document.getElementById('listaArchivos').innerHTML = '';
         }
 
         function cerrarModalDetalle() {
             document.getElementById('modalDetalle').classList.add('hidden');
         }
 
-        // Mostrar archivos seleccionados
+        function cerrarModalClickAfuera(event, modalId) {
+            if (event.target.id === modalId) {
+                document.getElementById(modalId).classList.add('hidden');
+            }
+        }
+
+        // Gestión de archivos en el formulario de nueva actividad
         document.getElementById('archivos').addEventListener('change', function() {
+            Array.from(this.files).forEach(file => {
+                archivosSeleccionados.push(file);
+            });
+            actualizarListaArchivos();
+            this.value = ''; // Limpiar input
+        });
+
+        function actualizarListaArchivos() {
             const lista = document.getElementById('listaArchivos');
             lista.innerHTML = '';
             
-            Array.from(this.files).forEach(file => {
+            archivosSeleccionados.forEach((file, index) => {
                 const div = document.createElement('div');
-                div.className = 'flex items-center justify-between bg-gray-50 p-2 rounded';
+                div.className = 'flex items-center justify-between bg-gray-50 p-2 rounded mb-1';
                 div.innerHTML = `
                     <span class="text-sm text-gray-700"><i class="fas fa-file mr-2"></i>${file.name}</span>
-                    <span class="text-xs text-gray-500">${(file.size / 1024).toFixed(2)} KB</span>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs text-gray-500">${(file.size / 1024).toFixed(2)} KB</span>
+                        <button type="button" onclick="eliminarArchivoFormulario(${index})" 
+                                class="text-red-600 hover:text-red-800 px-2">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 `;
                 lista.appendChild(div);
             });
-        });
+        }
 
-        // Enviar formulario
+        function eliminarArchivoFormulario(index) {
+            archivosSeleccionados.splice(index, 1);
+            actualizarListaArchivos();
+        }
+
         // Enviar formulario
         document.getElementById('formActividad').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            // Validar campos requeridos
             if (!document.getElementById('tipo_actividad').value || 
                 !document.getElementById('fecha_inicio').value || 
                 !document.getElementById('fecha_fin').value) {
@@ -482,24 +508,75 @@
             .then(response => response.json())
             .then(result => {
                 if (result.success) {
-                    alert('✅ Actividad registrada exitosamente');
-                    location.reload();
+                    if (archivosSeleccionados.length > 0) {
+                        const formData = new FormData();
+                        archivosSeleccionados.forEach(archivo => {
+                            formData.append('archivos', archivo);
+                        });
+                        
+                        return fetch(`/api/actividad/${result.id}/subir-archivos`, {
+                            method: 'POST',
+                            body: formData
+                        }).then(() => result);
+                    }
+                    return result;
                 } else {
-                    alert('❌ Error: ' + result.error);
+                    throw new Error(result.error);
                 }
+            })
+            .then(result => {
+                alert('✅ Actividad registrada exitosamente');
+                location.reload();
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('❌ Error al registrar actividad');
+                alert('❌ Error: ' + error.message);
             });
         });
 
-       
         function verDetalle(id) {
             fetch(`/api/actividad/${id}`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error('Error en la respuesta');
+                    return response.json();
+                })
                 .then(data => {
-                    document.getElementById('contenidoDetalle').innerHTML = `
+                    let horaTexto = 'Todo el día';
+                    if (data.hora_inicio && data.hora_fin) {
+                        horaTexto = `${data.hora_inicio} - ${data.hora_fin}`;
+                    }
+                    
+                    let archivosHTML = '';
+                    if (data.archivos_adjuntos && data.archivos_adjuntos.length > 0) {
+                        archivosHTML = data.archivos_adjuntos.map(archivo => `
+                            <div class="flex items-center justify-between bg-gray-50 p-3 rounded mb-2">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-file-pdf text-red-500 text-xl"></i>
+                                    <div>
+                                        <p class="font-semibold text-gray-800 text-sm">${archivo.nombre_original}</p>
+                                        <p class="text-xs text-gray-500">
+                                            ${(archivo.tamano / 1024).toFixed(2)} KB - ${archivo.fecha_subida}
+                                            ${archivo.usuario_nombre ? '<br>📤 ' + archivo.usuario_nombre : ''}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <a href="/uploads/${archivo.nombre_guardado}" target="_blank"
+                                    class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                    <button onclick="eliminarArchivoActividad(${id}, '${archivo.nombre_guardado}')"
+                                            class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        archivosHTML = '<p class="text-gray-500 text-sm text-center py-4">No hay archivos adjuntos</p>';
+                    }
+                    
+                    const contenido = `
                         <div class="space-y-4">
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
@@ -532,20 +609,35 @@
                                 </div>
                                 <div class="col-span-2">
                                     <p class="text-sm font-semibold text-gray-600">Horario</p>
-                                    <p class="text-gray-800">${data.hora_inicio ? data.hora_inicio + ' - ' + data.hora_fin : 'Todo el día'}</p>
+                                    <p class="text-gray-800">${horaTexto}</p>
                                 </div>
                                 <div class="col-span-2">
                                     <p class="text-sm font-semibold text-gray-600">Observaciones</p>
                                     <p class="text-gray-800">${data.observaciones || '-'}</p>
                                 </div>
                             </div>
+                            
+                            <div class="border-t pt-4">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-sm font-semibold text-gray-600">Archivos Adjuntos</h4>
+                                    <button onclick="abrirSubirArchivosActividad(${id})" type="button"
+                                            class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                                        <i class="fas fa-upload mr-1"></i>Subir Archivos
+                                    </button>
+                                </div>
+                                <div id="listaArchivosActividad">
+                                    ${archivosHTML}
+                                </div>
+                            </div>
                         </div>
                     `;
+                    
+                    document.getElementById('contenidoDetalle').innerHTML = contenido;
                     document.getElementById('modalDetalle').classList.remove('hidden');
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    alert('❌ Error al cargar detalle');
+                    console.error('Error completo:', error);
+                    alert('❌ Error al cargar detalle: ' + error.message);
                 });
         }
 
@@ -567,6 +659,111 @@
                 });
             }
         }
+
+        function abrirSubirArchivosActividad(actividadId) {
+            const html = `
+                <div id="modalSubirArchivos" class="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4" onclick="cerrarModalSubirArchivos(event)">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full" onclick="event.stopPropagation()">
+                        <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex justify-between items-center rounded-t-xl">
+                            <h3 class="text-xl font-bold text-white">
+                                <i class="fas fa-upload mr-2"></i>Subir Archivos
+                            </h3>
+                            <button onclick="cerrarModalSubirArchivos()" type="button" class="text-white hover:text-gray-200">
+                                <i class="fas fa-times text-2xl"></i>
+                            </button>
+                        </div>
+                        <div class="p-6">
+                            <input type="file" id="archivosSubir" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="w-full">
+                            <div id="previsualizacion" class="mt-3"></div>
+                            <div class="flex space-x-3 mt-4">
+                                <button onclick="cerrarModalSubirArchivos()" type="button"
+                                        class="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                                    Cancelar
+                                </button>
+                                <button onclick="subirArchivosActividad(${actividadId})" type="button"
+                                        class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                    <i class="fas fa-upload mr-2"></i>Subir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', html);
+            
+            document.getElementById('archivosSubir').addEventListener('change', function() {
+                const preview = document.getElementById('previsualizacion');
+                preview.innerHTML = '';
+                Array.from(this.files).forEach(file => {
+                    preview.innerHTML += `
+                        <div class="flex items-center justify-between bg-gray-50 p-2 rounded mb-2">
+                            <span class="text-sm"><i class="fas fa-file mr-2"></i>${file.name}</span>
+                            <span class="text-xs text-gray-500">${(file.size / 1024).toFixed(2)} KB</span>
+                        </div>
+                    `;
+                });
+            });
+        }
+
+        function cerrarModalSubirArchivos(event) {
+            if (event && event.target.id !== 'modalSubirArchivos') return;
+            const modal = document.getElementById('modalSubirArchivos');
+            if (modal) modal.remove();
+        }
+
+        function subirArchivosActividad(actividadId) {
+            const archivos = document.getElementById('archivosSubir').files;
+            if (archivos.length === 0) {
+                alert('⚠️ Selecciona al menos un archivo');
+                return;
+            }
+            
+            const formData = new FormData();
+            Array.from(archivos).forEach(archivo => {
+                formData.append('archivos', archivo);
+            });
+            
+            fetch(`/api/actividad/${actividadId}/subir-archivos`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('✅ Archivos subidos exitosamente');
+                    cerrarModalSubirArchivos();
+                    verDetalle(actividadId);
+                } else {
+                    alert('❌ Error: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error al subir archivos');
+            });
+        }
+
+        function eliminarArchivoActividad(actividadId, filename) {
+            if (confirm('¿Estás seguro de eliminar este archivo?')) {
+                fetch(`/api/actividad/${actividadId}/archivo/${filename}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        alert('✅ Archivo eliminado');
+                        verDetalle(actividadId);
+                    } else {
+                        alert('❌ Error: ' + result.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ Error al eliminar archivo');
+                });
+            }
+        }
+
         // Calcular estadísticas
         window.addEventListener('load', function() {
             const hoy = new Date();
@@ -576,14 +773,15 @@
             let actMes = 0, actSemana = 0;
             
             {% for actividad in actividades %}
-            const fecha = new Date('{{ actividad.fecha_inicio }}');
-            if (fecha >= inicioMes) actMes++;
-            if (fecha >= inicioSemana) actSemana++;
+            const fecha_{{ loop.index }} = new Date('{{ actividad.fecha_inicio }}');
+            if (fecha_{{ loop.index }} >= inicioMes) actMes++;
+            if (fecha_{{ loop.index }} >= inicioSemana) actSemana++;
             {% endfor %}
             
             document.getElementById('actividadesMes').textContent = actMes;
             document.getElementById('actividadesSemana').textContent = actSemana;
         });
     </script>
+
 </body>
 </html>
