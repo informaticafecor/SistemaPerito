@@ -111,6 +111,11 @@
                         <i class="fas fa-users-cog mr-1"></i>Usuarios
                     </a>
                     {% endif %}
+                    {% if session.rol == 'perito' %}
+                    <a href="/mis-actividades" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-clipboard-list mr-1"></i>Mis Actividades
+                    </a>
+                    {% endif %}
                 </div>
                 
                 <!-- Usuario y Salir -->
@@ -460,16 +465,22 @@
                     // Para asignaciones: excluir canceladas
                     if (a.tipo === 'asignacion') {
                         return fechaActual >= a.fecha_inicio && 
-                               fechaActual <= a.fecha_fin && 
-                               a.estado !== 'Cancelado';
+                            fechaActual <= a.fecha_fin && 
+                            a.estado !== 'Cancelado';
                     }
                     // Para vacaciones: mostrar todas
                     if (a.tipo === 'vacacion') {
                         return fechaActual >= a.fecha_inicio && 
-                               fechaActual <= a.fecha_fin;
+                            fechaActual <= a.fecha_fin;
+                    }
+                    // Para actividades: mostrar todas
+                    if (a.tipo === 'actividad') {
+                        return fechaActual >= a.fecha_inicio && 
+                            fechaActual <= a.fecha_fin;
                     }
                     return false;
                 });
+
                 const celda = document.createElement('div');
                 celda.className = 'calendario-dia border-r border-b p-2 relative';
                 
@@ -497,7 +508,7 @@
                     
                     if (item.tipo === 'vacacion') {
                         // ========== MOSTRAR VACACIÓN ==========
-                        evento.className = 'evento-perito bg-gradient-to-r from-red-400 to-red-500 text-white';
+                        evento.className = 'evento-perito bg-gradient-to-r from-purple-400 to-purple-500 text-white';
                         evento.innerHTML = `
                             <div style="font-weight: bold;">🏖️ ${item.perito_nombre?.split(' ')[0] || 'Sin nombre'}</div>
                             <div style="font-size: 10px;">VACACIONES</div>
@@ -505,6 +516,41 @@
                         `;
                         evento.title = `🏖️ ${item.perito_nombre}\nVACACIONES (${item.tipo_vacaciones})\n${item.fecha_inicio} al ${item.fecha_fin}`;
                         evento.onclick = () => verDetalleVacacion(item);
+                    } else if (item.tipo === 'actividad') {
+                        // ========== MOSTRAR ACTIVIDAD DE PERITO ==========
+                        // Colores más claros para actividades
+                        let claseColor;
+                        switch(item.tipo_perito) {
+                            case 'Informático':
+                                claseColor = 'bg-gradient-to-r from-blue-300 to-blue-400';
+                                break;
+                            case 'Acústico':
+                                claseColor = 'bg-gradient-to-r from-green-300 to-green-400';
+                                break;
+                            case 'Antropólogo':
+                                claseColor = 'bg-gradient-to-r from-yellow-300 to-yellow-400';
+                                break;
+                            case 'Contable':
+                                claseColor = 'bg-gradient-to-r from-red-300 to-red-400';
+                                break;
+                            default:
+                                claseColor = 'bg-gradient-to-r from-gray-300 to-gray-400';
+                        }
+                        
+                        evento.className = `evento-perito ${claseColor} text-gray-800`;
+                        evento.innerHTML = `
+                            <div style="font-weight: bold;">📋 ${item.perito_nombre?.split(' ')[0] || 'Sin nombre'}</div>
+                            <div style="font-size: 10px;">${item.carpeta_fiscal || 'Sin carpeta'}</div>
+                            <div style="font-size: 9px;">${item.tipo_actividad}</div>
+                        `;
+                        
+                        let horaTexto = '';
+                        if (item.hora_inicio && item.hora_fin) {
+                            horaTexto = `\n⏰ ${item.hora_inicio} - ${item.hora_fin}`;
+                        }
+                        
+                        evento.title = `📋 ${item.perito_nombre}\n${item.carpeta_fiscal || 'Sin carpeta'}\n${item.tipo_actividad}${horaTexto}`;
+                        evento.onclick = () => verDetalleActividad(item.actividad_id);
                     } else {
                         // ========== MOSTRAR ASIGNACIÓN ==========
                         evento.className = `evento-perito ${getTipoClase(item.tipo_perito)}`;
@@ -513,12 +559,13 @@
                             <div style="font-size: 10px;">${item.expediente || 'S/E'}</div>
                             <div style="font-size: 9px;">📍 ${item.dependencia || 'Sin dep.'}</div>
                         `;
-                        evento.title = `${item.perito_nombre}\n${item.expediente || 'Sin expediente'}\n📍 ${item.dependencia || 'Sin dependencia'}`;
+                        evento.title = `${item.perito_nombre}\n${item.expediente || 'Sin expediente'}\n${item.dependencia || 'Sin dependencia'}`;
                         evento.onclick = () => verDetalleAsignacion(item.id);
                     }
                     
                     celda.appendChild(evento);
                 });
+
                 
                 // Si hay más asignaciones, mostrar indicador
                 if (asignacionesDia.length > maxMostrar) {
@@ -895,6 +942,144 @@
                 .catch(error => {
                     console.error('Error:', error);
                     alert('Error al cargar el detalle de la asignación');
+                });
+        }
+
+        /**
+         * Ver detalle completo de una actividad de perito
+         */
+        function verDetalleActividad(actividadId) {
+            cerrarModalDia();
+            
+            fetch(`/api/actividad/${actividadId}`)
+                .then(response => response.json())
+                .then(data => {
+                    let horaTexto = 'Todo el día';
+                    if (data.hora_inicio && data.hora_fin) {
+                        horaTexto = `${data.hora_inicio} - ${data.hora_fin}`;
+                    }
+                    
+                    const contenido = `
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="col-span-2 bg-blue-50 p-4 rounded-lg mb-4">
+                                <h4 class="text-lg font-bold text-blue-900 mb-2">
+                                    <i class="fas fa-clipboard-list mr-2"></i>Actividad de Perito
+                                </h4>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Perito:</label>
+                                <p class="text-gray-800 text-xl font-bold">${data.perito_nombre || '-'}</p>
+                                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+                                    ${data.tipo_perito || '-'}
+                                </span>
+                            </div>
+                            
+                            <div class="col-span-2 bg-purple-50 p-4 rounded-lg my-4">
+                                <h4 class="text-lg font-bold text-purple-900 mb-2">
+                                    <i class="fas fa-folder-open mr-2"></i>Información del Caso
+                                </h4>
+                            </div>
+                            
+                            ${data.carpeta_fiscal ? `
+                                <div class="col-span-2">
+                                    <label class="text-sm font-semibold text-gray-600">Carpeta Fiscal:</label>
+                                    <p class="text-gray-800 font-semibold">${data.carpeta_fiscal}</p>
+                                </div>
+                            ` : ''}
+                            
+                            ${data.dependencia ? `
+                                <div class="col-span-2">
+                                    <label class="text-sm font-semibold text-gray-600">Dependencia:</label>
+                                    <p class="text-gray-800">${data.dependencia}</p>
+                                </div>
+                            ` : ''}
+                            
+                            ${data.denominacion ? `
+                                <div class="col-span-2">
+                                    <label class="text-sm font-semibold text-gray-600">Denominación:</label>
+                                    <p class="text-gray-800">${data.denominacion}</p>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="col-span-2 bg-green-50 p-4 rounded-lg my-4">
+                                <h4 class="text-lg font-bold text-green-900 mb-2">
+                                    <i class="fas fa-tasks mr-2"></i>Detalles de la Actividad
+                                </h4>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Tipo de Actividad:</label>
+                                <p class="text-gray-800">
+                                    <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                                        ${data.tipo_actividad || '-'}
+                                    </span>
+                                </p>
+                            </div>
+                            
+                            ${data.apoyo_tecnico ? `
+                                <div class="col-span-2">
+                                    <label class="text-sm font-semibold text-gray-600">Apoyo Técnico:</label>
+                                    <p class="text-gray-800">
+                                        <span class="px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-sm font-semibold">
+                                            ${data.apoyo_tecnico}
+                                        </span>
+                                    </p>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="col-span-2 bg-orange-50 p-4 rounded-lg my-4">
+                                <h4 class="text-lg font-bold text-orange-900 mb-2">
+                                    <i class="fas fa-calendar-alt mr-2"></i>Fechas y Horarios
+                                </h4>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Fecha Inicio:</label>
+                                <p class="text-gray-800">
+                                    <i class="far fa-calendar-check text-green-600 mr-1"></i>
+                                    ${data.fecha_inicio}
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">Fecha Fin:</label>
+                                <p class="text-gray-800">
+                                    <i class="far fa-calendar-times text-red-600 mr-1"></i>
+                                    ${data.fecha_fin}
+                                </p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Horario:</label>
+                                <p class="text-gray-800">
+                                    <i class="far fa-clock text-blue-600 mr-1"></i>
+                                    ${horaTexto}
+                                </p>
+                            </div>
+                            
+                            ${data.observaciones ? `
+                                <div class="col-span-2">
+                                    <label class="text-sm font-semibold text-gray-600">Observaciones:</label>
+                                    <p class="text-gray-800 bg-gray-50 p-3 rounded-lg">${data.observaciones}</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="mt-6 flex justify-end space-x-3">
+                            <button onclick="cerrarModalDetalle()" 
+                                    class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                                <i class="fas fa-times mr-2"></i>Cerrar
+                            </button>
+                        </div>
+                    `;
+                    
+                    document.getElementById('contenidoDetalle').innerHTML = contenido;
+                    document.getElementById('modalDetalle').classList.remove('hidden');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al cargar el detalle de la actividad');
                 });
         }
 

@@ -1295,6 +1295,8 @@ def get_asignaciones():
             'perito_nombre': row['nombre_completo']
         })
     
+
+    
     # ==================== OBTENER VACACIONES ====================
     query_vac = '''
         SELECT v.*, p.nombre_completo
@@ -1343,10 +1345,8 @@ def get_asignaciones():
             'observaciones': row['observaciones']
         })
     
-    conn.close()
-    return jsonify(resultados)
 
-# ==================== OBTENER ACTIVIDADES DE PERITOS ====================
+    # ==================== OBTENER ACTIVIDADES DE PERITOS ====================
     query_act = '''
         SELECT a.*, p.nombre_completo
         FROM actividades_peritos a
@@ -1355,12 +1355,17 @@ def get_asignaciones():
     '''
     params_act = []
     
-    # Filtro por rol
+    # Filtro por rol (perito solo ve las suyas)
     if not es_admin and perito_id:
         query_act += ' AND a.perito_id = ?'
         params_act.append(perito_id)
     
-    # Filtro por fechas
+    # Filtro por perito específico (para admin)
+    if request.args.get('perito_id') and es_admin:
+        query_act += ' AND a.perito_id = ?'
+        params_act.append(request.args.get('perito_id'))
+    
+    # Filtro por rango de fechas
     if request.args.get('fecha_desde'):
         query_act += ' AND a.fecha_inicio >= ?'
         params_act.append(request.args.get('fecha_desde'))
@@ -1386,8 +1391,15 @@ def get_asignaciones():
             'fecha_fin': row['fecha_fin'],
             'hora_inicio': row['hora_inicio'],
             'hora_fin': row['hora_fin'],
-            'observaciones': row['observaciones']
+            'observaciones': row['observaciones'],
+            'dependencia': row['dependencia'],
+            'denominacion': row['denominacion']
         })
+
+    conn.close()
+    return jsonify(resultados)
+
+ 
 
 @app.route('/api/asignacion/<int:id>', methods=['GET'])
 def get_asignacion(id):
@@ -2303,7 +2315,42 @@ def descargar_archivo(filename):
 
 
 
-
+@app.route('/actividades-admin')
+@admin_required
+def actividades_admin():
+    """
+    Página para que admin vea todas las actividades de peritos
+    """
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT a.*, p.nombre_completo
+        FROM actividades_peritos a
+        LEFT JOIN peritos p ON a.perito_id = p.id
+        ORDER BY a.fecha_inicio DESC
+    ''')
+    
+    actividades = []
+    for row in cursor.fetchall():
+        actividades.append({
+            'id': row['id'],
+            'perito_nombre': row['nombre_completo'],
+            'tipo_perito': row['tipo_perito'],
+            'dependencia': row['dependencia'],
+            'carpeta_fiscal': row['carpeta_fiscal'],
+            'denominacion': row['denominacion'],
+            'tipo_actividad': row['tipo_actividad'],
+            'fecha_inicio': row['fecha_inicio'],
+            'fecha_fin': row['fecha_fin'],
+            'hora_inicio': row['hora_inicio'],
+            'hora_fin': row['hora_fin']
+        })
+    
+    conn.close()
+    
+    return render_template('admin/actividades.html', actividades=actividades)   
 # ============================================
 # ACTIVIDADES DE PERITOS
 # ============================================
@@ -2431,7 +2478,14 @@ def get_actividad(id):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    cursor.execute('SELECT * FROM actividades_peritos WHERE id = ?', (id,))
+    # CAMBIO: Hacer JOIN con la tabla peritos para obtener el nombre
+    cursor.execute('''
+        SELECT a.*, p.nombre_completo
+        FROM actividades_peritos a
+        LEFT JOIN peritos p ON a.perito_id = p.id
+        WHERE a.id = ?
+    ''', (id,))
+    
     row = cursor.fetchone()
     
     if not row:
@@ -2443,9 +2497,18 @@ def get_actividad(id):
         conn.close()
         return jsonify({'error': 'No autorizado'}), 403
     
+    # Parsear archivos adjuntos si existen
+    archivos = []
+    if row['archivos_adjuntos']:
+        try:
+            archivos = json.loads(row['archivos_adjuntos'])
+        except:
+            archivos = []
+    
     actividad = {
         'id': row['id'],
         'perito_id': row['perito_id'],
+        'perito_nombre': row['nombre_completo'],  # ← AGREGADO
         'tipo_perito': row['tipo_perito'],
         'dependencia': row['dependencia'],
         'carpeta_fiscal': row['carpeta_fiscal'],
@@ -2457,7 +2520,7 @@ def get_actividad(id):
         'fecha_fin': row['fecha_fin'],
         'hora_inicio': row['hora_inicio'],
         'hora_fin': row['hora_fin'],
-        'archivos_adjuntos': row['archivos_adjuntos']
+        'archivos_adjuntos': archivos
     }
     
     conn.close()
@@ -2503,6 +2566,177 @@ def eliminar_actividad(id):
     return jsonify({'success': True, 'message': 'Actividad eliminada exitosamente'})
 
 
+
+@app.route('/api/actividad/<int:id>/subir-archivos', methods=['POST'])
+@login_required
+def subir_archivos_actividad(id):
+    """
+    Sube archivos adjuntos a una actividad
+    """
+    # Verificar que la actividad existe y pertenece al perito
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT archivos_adjuntos, perito_id FROM actividades_peritos WHERE id = ?', (id,))
+    resultado = cursor.fetchone()
+    
+    if not resultado:
+        conn.close()
+        return jsonify({'error': 'Actividad no encontrada'}), 404
+    
+    # Verificar permisos
+    es_admin = session.get('rol') == 'admin'
+    perito_id = session.get('perito_id')
+    
+    if not es_admin and resultado[1] != perito_id:
+        conn.close()
+        return jsonify({'error': 'No tienes permiso para subir archivos a esta actividad'}), 403
+    
+    if 'archivos' not in request.files:
+        conn.close()
+        return jsonify({'error': 'No se enviaron archivos'}), 400
+    
+    archivos = request.files.getlist('archivos')
+    archivos_guardados = []
+    errores = []
+    
+    # Obtener archivos existentes
+    archivos_existentes = []
+    if resultado[0]:
+        try:
+            archivos_existentes = json.loads(resultado[0])
+        except:
+            archivos_existentes = []
+    
+    # Procesar cada archivo
+    for archivo in archivos:
+        if archivo.filename == '':
+            continue
+        
+        if archivo and allowed_file(archivo.filename):
+            filename = secure_filename(archivo.filename)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+            extension = filename.rsplit('.', 1)[1].lower()
+            nombre_base = filename.rsplit('.', 1)[0][:30]
+            filename_final = f"act_{id}_{timestamp}_{nombre_base}.{extension}"
+            
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename_final)
+            archivo.save(filepath)
+            
+            archivos_guardados.append({
+                'nombre_original': archivo.filename,
+                'nombre_guardado': filename_final,
+                'fecha_subida': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'tamano': os.path.getsize(filepath),
+                'usuario_id': session['usuario_id'],
+                'usuario_nombre': session.get('nombre_completo', session['usuario'])
+            })
+        else:
+            errores.append(f"Archivo '{archivo.filename}' no permitido")
+    
+    # Combinar archivos
+    todos_archivos = archivos_existentes + archivos_guardados
+    
+    # Actualizar BD
+    cursor.execute(
+        'UPDATE actividades_peritos SET archivos_adjuntos = ? WHERE id = ?',
+        (json.dumps(todos_archivos), id)
+    )
+    conn.commit()
+    conn.close()
+    
+    # Auditoría
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'CARGA_ARCHIVO',
+        'ACTIVIDADES',
+        f"{len(archivos_guardados)} archivo(s) subido(s) a actividad ID {id}",
+        id
+    )
+    
+    return jsonify({
+        'success': True,
+        'archivos_guardados': len(archivos_guardados),
+        'archivos': archivos_guardados,
+        'errores': errores
+    })
+
+@app.route('/api/actividad/<int:id>/archivo/<filename>', methods=['DELETE'])
+@login_required
+def eliminar_archivo_actividad(id, filename):
+    """
+    Elimina archivo de actividad (Admin elimina cualquiera, Perito solo los suyos)
+    """
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT archivos_adjuntos, perito_id FROM actividades_peritos WHERE id = ?', (id,))
+    resultado = cursor.fetchone()
+    
+    if not resultado:
+        conn.close()
+        return jsonify({'error': 'Actividad no encontrada'}), 404
+    
+    archivos = []
+    if resultado[0]:
+        try:
+            archivos = json.loads(resultado[0])
+        except:
+            archivos = []
+    
+    # Buscar el archivo
+    archivo_encontrado = None
+    for a in archivos:
+        if a['nombre_guardado'] == filename:
+            archivo_encontrado = a
+            break
+    
+    if not archivo_encontrado:
+        conn.close()
+        return jsonify({'error': 'Archivo no encontrado'}), 404
+    
+    # Verificar permisos
+    es_admin = session.get('rol') == 'admin'
+    usuario_id = session.get('usuario_id')
+    perito_id = session.get('perito_id')
+    
+    if not es_admin:
+        if resultado[1] != perito_id:
+            conn.close()
+            return jsonify({'error': 'No tienes permiso'}), 403
+        
+        if archivo_encontrado.get('usuario_id') != usuario_id:
+            conn.close()
+            return jsonify({'error': 'No puedes eliminar este archivo (no lo subiste tú)'}), 403
+    
+    # Filtrar archivo
+    archivos_filtrados = [a for a in archivos if a['nombre_guardado'] != filename]
+    
+    # Eliminar físicamente
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    if os.path.exists(filepath):
+        os.remove(filepath)
+    
+    # Actualizar BD
+    cursor.execute(
+        'UPDATE actividades_peritos SET archivos_adjuntos = ? WHERE id = ?',
+        (json.dumps(archivos_filtrados), id)
+    )
+    conn.commit()
+    conn.close()
+    
+    # Auditoría
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'ELIMINA_ARCHIVO',
+        'ACTIVIDADES',
+        f"Archivo '{archivo_encontrado['nombre_original']}' eliminado de actividad ID {id}",
+        id
+    )
+    
+    return jsonify({'success': True, 'message': 'Archivo eliminado correctamente'})
 
 # ============================================
 # ENDPOINTS PARA EDITAR
