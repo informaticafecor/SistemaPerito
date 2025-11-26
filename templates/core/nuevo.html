@@ -49,15 +49,18 @@
                     <a href="/" class="px-3 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition text-sm">
                         <i class="fas fa-home mr-1"></i>Dashboard
                     </a>
+                    {% if session.rol == 'admin' %}
                     <a href="/nuevo" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-plus mr-1"></i>Nueva
                     </a>
+                    {% endif %}
                     <a href="/buscar" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-search mr-1"></i>Buscar
                     </a>
                     <a href="/calendario" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-calendar mr-1"></i>Calendario
                     </a>
+                    {% if session.rol == 'admin' %}
                     <a href="/peritos" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-users mr-1"></i>Peritos
                     </a>
@@ -67,18 +70,33 @@
                     <a href="/vacaciones" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-umbrella-beach mr-1"></i>Vacaciones
                     </a>
-                    {% if session.rol == 'admin' %}
                     <a href="/usuarios" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-users-cog mr-1"></i>Usuarios
+                    </a>
+                    <!-- ⬇️ AGREGAR ESTE BOTÓN AQUÍ ⬇️ -->
+                    <a href="/actividades-admin" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-clipboard-list mr-1"></i>Actividades
+                    </a>
+                    <!-- ⬆️ FIN DEL BOTÓN ⬆️ -->
+                    {% endif %}
+
+                    {% if session.rol == 'perito' %}
+                    <a href="/mis-actividades" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-clipboard-list mr-1"></i>Mis Actividades
                     </a>
                     {% endif %}
                 </div>
                 
                 <!-- Usuario y Salir -->
                 <div class="flex items-center space-x-3 border-l border-blue-700 pl-4">
-                    <span class="text-sm text-blue-200 hidden md:block">
-                        <i class="fas fa-user-circle mr-1"></i>{{ session.nombre_completo or session.usuario }}
-                    </span>
+                    <div class="text-right hidden md:block">
+                        <p class="text-sm font-semibold">{{ session.nombre_completo or session.usuario }}</p>
+                        {% if tipo_perito %}
+                        <p class="text-xs text-blue-300">Perito {{ tipo_perito }}</p>
+                        {% elif session.rol == 'admin' %}
+                        <p class="text-xs text-blue-300">Administrador</p>
+                        {% endif %}
+                    </div>
                     <a href="/logout" class="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition text-sm font-semibold">
                         <i class="fas fa-sign-out-alt mr-1"></i>Salir
                     </a>
@@ -86,7 +104,6 @@
             </div>
         </div>
     </nav>
-
 
     <!-- Contenido Principal -->
     <div class="container mx-auto px-4 py-8">

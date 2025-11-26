@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actividades de Peritos - Sistema Perito</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Navegación Principal -->
+    <!-- Navegación Principal -->
+    <nav class="bg-blue-900 text-white shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-3">
+                <!-- Logo y Título -->
+                <div class="flex items-center space-x-3">
+                    <img src="{{ url_for('static', filename='imagenes/logompo.png') }}" alt="Logo" class="w-10 h-10 object-contain">
+                    <div class="hidden md:block">
+                        <h1 class="text-xl font-bold">SistemaPerito</h1>
+                        <p class="text-xs text-blue-200">Gestión de Asignaciones</p>
+                    </div>
+                </div>
+                
+                <!-- Menú de navegación -->
+                <div class="flex items-center space-x-1">
+                    <a href="/" class="px-3 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition text-sm">
+                        <i class="fas fa-home mr-1"></i>Dashboard
+                    </a>
+                    {% if session.rol == 'admin' %}
+                    <a href="/nuevo" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-plus mr-1"></i>Nueva
+                    </a>
+                    {% endif %}
+                    <a href="/buscar" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-search mr-1"></i>Buscar
+                    </a>
+                    <a href="/calendario" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-calendar mr-1"></i>Calendario
+                    </a>
+                    {% if session.rol == 'admin' %}
+                    <a href="/peritos" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-users mr-1"></i>Peritos
+                    </a>
+                    <a href="/reportes" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-chart-bar mr-1"></i>Reportes
+                    </a>
+                    <a href="/vacaciones" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-umbrella-beach mr-1"></i>Vacaciones
+                    </a>
+                    <a href="/usuarios" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-users-cog mr-1"></i>Usuarios
+                    </a>
+                    <!-- ⬇️ AGREGAR ESTE BOTÓN AQUÍ ⬇️ -->
+                    <a href="/actividades-admin" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-clipboard-list mr-1"></i>Actividades
+                    </a>
+                    <!-- ⬆️ FIN DEL BOTÓN ⬆️ -->
+                    {% endif %}
+
+                    {% if session.rol == 'perito' %}
+                    <a href="/mis-actividades" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-clipboard-list mr-1"></i>Mis Actividades
+                    </a>
+                    {% endif %}
+                </div>
+                
+                <!-- Usuario y Salir -->
+                <div class="flex items-center space-x-3 border-l border-blue-700 pl-4">
+                    <div class="text-right hidden md:block">
+                        <p class="text-sm font-semibold">{{ session.nombre_completo or session.usuario }}</p>
+                        {% if tipo_perito %}
+                        <p class="text-xs text-blue-300">Perito {{ tipo_perito }}</p>
+                        {% elif session.rol == 'admin' %}
+                        <p class="text-xs text-blue-300">Administrador</p>
+                        {% endif %}
+                    </div>
+                    <a href="/logout" class="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition text-sm font-semibold">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Salir
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <div class="container mx-auto px-4 py-8">
+        
+        <!-- Encabezado -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-800">
+                    <i class="fas fa-clipboard-list text-blue-600 mr-3"></i>
+                    Actividades de Peritos
+                </h2>
+                <p class="text-gray-600 mt-1">Vista general de todas las actividades registradas por los peritos</p>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Perito</label>
+                    <select id="filtroPeritoActividad" onchange="filtrarActividades()" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Todos los peritos</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de Perito</label>
+                    <select id="filtroTipoPerito" onchange="filtrarActividades()" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Todos los tipos</option>
+                        <option value="Informático">Informático</option>
+                        <option value="Acústico">Acústico</option>
+                        <option value="Antropólogo">Antropólogo</option>
+                        <option value="Contable">Contable</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Desde</label>
+                    <input type="date" id="filtroFechaDesde" onchange="filtrarActividades()"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Hasta</label>
+                    <input type="date" id="filtroFechaHasta" onchange="filtrarActividades()"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="mt-4 flex justify-end">
+                <button onclick="limpiarFiltros()" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                    <i class="fas fa-eraser mr-2"></i>Limpiar Filtros
+                </button>
+            </div>
+        </div>
+
+        <!-- Estadísticas -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+                <p class="text-sm font-semibold text-gray-600 uppercase">Total Actividades</p>
+                <p class="text-3xl font-bold text-gray-900 mt-2" id="totalActividades">{{ actividades|length }}</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+                <p class="text-sm font-semibold text-gray-600 uppercase">Este Mes</p>
+                <p class="text-3xl font-bold text-green-600 mt-2" id="actividadesMes">0</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500">
+                <p class="text-sm font-semibold text-gray-600 uppercase">Esta Semana</p>
+                <p class="text-3xl font-bold text-purple-600 mt-2" id="actividadesSemana">0</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
+                <p class="text-sm font-semibold text-gray-600 uppercase">Peritos Activos</p>
+                <p class="text-3xl font-bold text-orange-600 mt-2" id="peritosActivos">0</p>
+            </div>
+        </div>
+
+        <!-- Tabla de Actividades -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-500">
+                <h3 class="text-xl font-bold text-white">
+                    <i class="fas fa-list mr-2"></i>Registro de Actividades
+                </h3>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Perito</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tipo</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Carpeta Fiscal</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tipo de Actividad</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Fecha Inicio</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Fecha Fin</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Estado</th> <!-- ← AGREGAR -->
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="tablaActividades">
+                        {% for actividad in actividades %}
+                        <tr class="hover:bg-gray-50" 
+                            data-perito-id="{{ actividad.perito_nombre }}"
+                            data-tipo="{{ actividad.tipo_perito }}"
+                            data-fecha-inicio="{{ actividad.fecha_inicio }}"
+                            data-fecha-fin="{{ actividad.fecha_fin }}">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{{ actividad.id }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 font-semibold">{{ actividad.perito_nombre }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                    {% if actividad.tipo_perito == 'Informático' %}bg-blue-100 text-blue-800
+                                    {% elif actividad.tipo_perito == 'Acústico' %}bg-green-100 text-green-800
+                                    {% elif actividad.tipo_perito == 'Antropólogo' %}bg-yellow-100 text-yellow-800
+                                    {% elif actividad.tipo_perito == 'Contable' %}bg-red-100 text-red-800
+                                    {% endif %}">
+                                    {{ actividad.tipo_perito }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-800">{{ actividad.carpeta_fiscal or '-' }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-800 font-semibold">{{ actividad.tipo_actividad }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ actividad.fecha_inicio }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ actividad.fecha_fin }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if actividad.estado == 'Completado' %}
+                                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i>Completado
+                                </span>
+                                {% elif actividad.estado == 'En Proceso' %}
+                                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                    <i class="fas fa-spinner mr-1"></i>En Proceso
+                                </span>
+                                {% else %}
+                                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                    <i class="fas fa-clock mr-1"></i>Pendiente
+                                </span>
+                                {% endif %}
+                            </td>
+
+                            <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                                <button onclick="verDetalleActividad({{ actividad.id }})" 
+                                        class="text-blue-600 hover:text-blue-800" title="Ver detalle">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button onclick="cambiarEstadoActividad({{ actividad.id }})" 
+                                        class="text-orange-600 hover:text-orange-800" title="Cambiar estado">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                <button onclick="eliminarActividad({{ actividad.id }})" 
+                                        class="text-red-600 hover:text-red-800" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="px-6 py-12 text-center">
+                                <i class="fas fa-clipboard text-6xl text-gray-300 mb-4"></i>
+                                <p class="text-gray-500">No hay actividades registradas</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Detalle de Actividad -->
+    <!-- Modal: Detalle de Actividad -->
+    <div id="modalDetalle" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" onclick="cerrarModalClickAfuera(event)">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full my-8" onclick="event.stopPropagation()">
+                <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex justify-between items-center rounded-t-xl">
+                    <h3 class="text-xl font-bold text-white">
+                        <i class="fas fa-info-circle mr-2"></i>Detalle de Actividad
+                    </h3>
+                    <button onclick="cerrarModalDetalle()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <div id="contenidoDetalle" class="p-6">
+                    <!-- Se llenará con JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const todasActividades = {{ actividades|tojson }};
+
+        // Cargar peritos en el filtro
+        window.addEventListener('load', function() {
+            const selectPerito = document.getElementById('filtroPeritoActividad');
+            const peritosUnicos = [...new Set(todasActividades.map(a => a.perito_nombre))];
+            
+            peritosUnicos.forEach(perito => {
+                selectPerito.innerHTML += `<option value="${perito}">${perito}</option>`;
+            });
+
+            calcularEstadisticas();
+        });
+
+        function filtrarActividades() {
+            const filtroPeritoVal = document.getElementById('filtroPeritoActividad').value.toLowerCase();
+            const filtroTipoVal = document.getElementById('filtroTipoPerito').value;
+            const fechaDesde = document.getElementById('filtroFechaDesde').value;
+            const fechaHasta = document.getElementById('filtroFechaHasta').value;
+
+            const filas = document.querySelectorAll('#tablaActividades tr[data-perito-id]');
+            
+            filas.forEach(fila => {
+                const perito = fila.getAttribute('data-perito-id').toLowerCase();
+                const tipo = fila.getAttribute('data-tipo');
+                const fechaInicio = fila.getAttribute('data-fecha-inicio');
+
+                let mostrar = true;
+
+                if (filtroPeritoVal && !perito.includes(filtroPeritoVal)) mostrar = false;
+                if (filtroTipoVal && tipo !== filtroTipoVal) mostrar = false;
+                if (fechaDesde && fechaInicio < fechaDesde) mostrar = false;
+                if (fechaHasta && fechaInicio > fechaHasta) mostrar = false;
+
+                fila.style.display = mostrar ? '' : 'none';
+            });
+        }
+
+        function limpiarFiltros() {
+            document.getElementById('filtroPeritoActividad').value = '';
+            document.getElementById('filtroTipoPerito').value = '';
+            document.getElementById('filtroFechaDesde').value = '';
+            document.getElementById('filtroFechaHasta').value = '';
+            filtrarActividades();
+        }
+
+        function calcularEstadisticas() {
+            const hoy = new Date();
+            const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+            const inicioSemana = new Date(hoy);
+            inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+
+            let actMes = 0, actSemana = 0;
+            const peritosSet = new Set();
+
+            todasActividades.forEach(act => {
+                const fecha = new Date(act.fecha_inicio);
+                if (fecha >= inicioMes) actMes++;
+                if (fecha >= inicioSemana) actSemana++;
+                peritosSet.add(act.perito_nombre);
+            });
+
+            document.getElementById('actividadesMes').textContent = actMes;
+            document.getElementById('actividadesSemana').textContent = actSemana;
+            document.getElementById('peritosActivos').textContent = peritosSet.size;
+        }
+
+
+        function verDetalleActividad(id) {
+            fetch(`/api/actividad/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    let horaTexto = 'Todo el día';
+                    if (data.hora_inicio && data.hora_fin) {
+                        horaTexto = `${data.hora_inicio} - ${data.hora_fin}`;
+                    }
+
+                    // Estado badge
+                    let estadoBadge = '';
+                    if (data.estado === 'Completado') {
+                        estadoBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800"><i class="fas fa-check-circle mr-1"></i>Completado</span>';
+                    } else if (data.estado === 'En Proceso') {
+                        estadoBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800"><i class="fas fa-spinner mr-1"></i>En Proceso</span>';
+                    } else {
+                        estadoBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800"><i class="fas fa-clock mr-1"></i>Pendiente</span>';
+                    }
+
+                    // Generar HTML de archivos
+                    let archivosHTML = '';
+                    if (data.archivos_adjuntos && data.archivos_adjuntos.length > 0) {
+                        archivosHTML = '<div class="border-t pt-4 mt-4"><h4 class="text-sm font-semibold text-gray-600 mb-3">Archivos Adjuntos</h4>';
+                        data.archivos_adjuntos.forEach(archivo => {
+                            archivosHTML += `
+                                <div class="flex items-center justify-between bg-gray-50 p-3 rounded mb-2">
+                                    <div class="flex items-center space-x-3">
+                                        <i class="fas fa-file-pdf text-red-500 text-xl"></i>
+                                        <div>
+                                            <p class="font-semibold text-gray-800 text-sm">${archivo.nombre_original}</p>
+                                            <p class="text-xs text-gray-500">
+                                                ${(archivo.tamano / 1024).toFixed(2)} KB - ${archivo.fecha_subida}
+                                                ${archivo.usuario_nombre ? '<br>📤 Subido por: ' + archivo.usuario_nombre : ''}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <a href="/uploads/${archivo.nombre_guardado}" target="_blank"
+                                        class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        archivosHTML += '</div>';
+                    }
+
+                    const contenido = `
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="col-span-2 bg-blue-50 p-4 rounded-lg">
+                                <h4 class="text-lg font-bold text-blue-900">
+                                    <i class="fas fa-user-tie mr-2"></i>${data.perito_nombre || '-'}
+                                </h4>
+                                <p class="text-sm text-blue-700">${data.tipo_perito}</p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Estado:</label>
+                                <div class="mt-1">${estadoBadge}</div>
+                            </div>
+                            
+                            ${data.dependencia ? `<div class="col-span-2"><label class="text-sm font-semibold text-gray-600">Dependencia:</label><p class="text-gray-800">${data.dependencia}</p></div>` : ''}
+                            ${data.carpeta_fiscal ? `<div class="col-span-2"><label class="text-sm font-semibold text-gray-600">Carpeta Fiscal:</label><p class="text-gray-800">${data.carpeta_fiscal}</p></div>` : ''}
+                            ${data.denominacion ? `<div class="col-span-2"><label class="text-sm font-semibold text-gray-600">Denominación:</label><p class="text-gray-800">${data.denominacion}</p></div>` : ''}
+                            <div class="col-span-2"><label class="text-sm font-semibold text-gray-600">Tipo de Actividad:</label><p class="text-gray-800 font-bold">${data.tipo_actividad}</p></div>
+                            ${data.apoyo_tecnico ? `<div class="col-span-2"><label class="text-sm font-semibold text-gray-600">Apoyo Técnico:</label><p class="text-gray-800">${data.apoyo_tecnico}</p></div>` : ''}
+                            <div><label class="text-sm font-semibold text-gray-600">Fecha Inicio:</label><p class="text-gray-800">${data.fecha_inicio}</p></div>
+                            <div><label class="text-sm font-semibold text-gray-600">Fecha Fin:</label><p class="text-gray-800">${data.fecha_fin}</p></div>
+                            <div class="col-span-2"><label class="text-sm font-semibold text-gray-600">Horario:</label><p class="text-gray-800">${horaTexto}</p></div>
+                            ${data.observaciones ? `<div class="col-span-2"><label class="text-sm font-semibold text-gray-600">Observaciones:</label><p class="text-gray-800 bg-gray-50 p-3 rounded">${data.observaciones}</p></div>` : ''}
+                        </div>
+                        
+                        ${archivosHTML}
+                        
+                        <div class="mt-6 flex justify-end space-x-3">
+                            <button onclick="cambiarEstadoActividad(${id})" 
+                                    class="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600">
+                                <i class="fas fa-sync-alt mr-2"></i>Cambiar Estado
+                            </button>
+                            <button onclick="cerrarModalDetalle()" 
+                                    class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                                <i class="fas fa-times mr-2"></i>Cerrar
+                            </button>
+                        </div>
+                    `;
+                    
+                    document.getElementById('contenidoDetalle').innerHTML = contenido;
+                    document.getElementById('modalDetalle').classList.remove('hidden');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ Error al cargar detalle');
+                });
+        }
+
+        function cambiarEstadoActividad(id) {
+            const estadoActual = prompt('Ingresa el nuevo estado:\n1. Pendiente\n2. En Proceso\n3. Completado');
+            
+            let nuevoEstado;
+            if (estadoActual === '1') nuevoEstado = 'Pendiente';
+            else if (estadoActual === '2') nuevoEstado = 'En Proceso';
+            else if (estadoActual === '3') nuevoEstado = 'Completado';
+            else {
+                alert('❌ Opción inválida');
+                return;
+            }
+            
+            fetch(`/api/actividad/${id}/cambiar-estado`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado: nuevoEstado })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('✅ Estado actualizado');
+                    location.reload();
+                } else {
+                    alert('❌ Error: ' + result.error);
+                }
+            })
+            .catch(error => alert('❌ Error al cambiar estado'));
+        }
+
+
+        function cerrarModalDetalle() {
+            document.getElementById('modalDetalle').classList.add('hidden');
+        }
+
+        function cerrarModalClickAfuera(event) {
+            if (event.target.id === 'modalDetalle') {
+                cerrarModalDetalle();
+            }
+        }        
+
+        function eliminarActividad(id) {
+            if (confirm('¿Estás seguro de eliminar esta actividad?')) {
+                fetch(`/api/actividad/${id}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        alert('✅ Actividad eliminada');
+                        location.reload();
+                    } else {
+                        alert('❌ Error: ' + result.error);
+                    }
+                })
+                .catch(error => alert('❌ Error al eliminar'));
+            }
+        }
+    </script>
+</body>
+</html>

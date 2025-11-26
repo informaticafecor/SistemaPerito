@@ -222,6 +222,7 @@ def init_db():
             fecha_fin DATE NOT NULL,
             hora_inicio TIME,
             hora_fin TIME,
+            estado TEXT DEFAULT 'Pendiente',  -- ← AGREGAR ESTA LÍNEA
             archivos_adjuntos TEXT,
             fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (perito_id) REFERENCES peritos(id)
@@ -304,7 +305,7 @@ def init_db():
 
     conn.close()
 
-    #-----------------------------------------------------------------------------------------------------------
+    
 
 
 
@@ -2313,7 +2314,7 @@ def descargar_archivo(filename):
     
     return send_file(filepath, as_attachment=True)
 
-
+# PARA ADNINB AACTIVIDADES
 
 @app.route('/actividades-admin')
 @admin_required
@@ -2333,7 +2334,21 @@ def actividades_admin():
     ''')
     
     actividades = []
+    from datetime import datetime, date
+    hoy = date.today()
+    
     for row in cursor.fetchall():
+        fecha_inicio = datetime.strptime(row['fecha_inicio'], '%Y-%m-%d').date()
+        fecha_fin = datetime.strptime(row['fecha_fin'], '%Y-%m-%d').date()
+        
+        # Calcular estado automático
+        if hoy < fecha_inicio:
+            estado_auto = 'Pendiente'
+        elif fecha_inicio <= hoy <= fecha_fin:
+            estado_auto = 'En Proceso'
+        else:
+            estado_auto = 'Completado'
+        
         actividades.append({
             'id': row['id'],
             'perito_nombre': row['nombre_completo'],
@@ -2345,12 +2360,15 @@ def actividades_admin():
             'fecha_inicio': row['fecha_inicio'],
             'fecha_fin': row['fecha_fin'],
             'hora_inicio': row['hora_inicio'],
-            'hora_fin': row['hora_fin']
+            'hora_fin': row['hora_fin'],
+            'estado': estado_auto
         })
     
     conn.close()
     
-    return render_template('admin/actividades.html', actividades=actividades)   
+    return render_template('admin/actividades.html', actividades=actividades)
+
+
 # ============================================
 # ACTIVIDADES DE PERITOS
 # ============================================
@@ -2383,7 +2401,21 @@ def mis_actividades():
     ''', (perito_id,))
     
     actividades = []
+    from datetime import datetime, date
+    hoy = date.today()
+    
     for row in cursor.fetchall():
+        fecha_inicio = datetime.strptime(row['fecha_inicio'], '%Y-%m-%d').date()
+        fecha_fin = datetime.strptime(row['fecha_fin'], '%Y-%m-%d').date()
+        
+        # Calcular estado automático
+        if hoy < fecha_inicio:
+            estado_auto = 'Pendiente'
+        elif fecha_inicio <= hoy <= fecha_fin:
+            estado_auto = 'En Proceso'
+        else:  # hoy > fecha_fin
+            estado_auto = 'Completado'
+        
         actividades.append({
             'id': row['id'],
             'dependencia': row['dependencia'],
@@ -2396,7 +2428,8 @@ def mis_actividades():
             'fecha_fin': row['fecha_fin'],
             'hora_inicio': row['hora_inicio'],
             'hora_fin': row['hora_fin'],
-            'fecha_registro': row['fecha_registro']
+            'fecha_registro': row['fecha_registro'],
+            'estado': estado_auto  # Estado calculado automáticamente
         })
     
     conn.close()
@@ -2405,6 +2438,7 @@ def mis_actividades():
                           perito_nombre=perito['nombre_completo'],
                           tipo_perito=perito['tipo'],
                           actividades=actividades)
+
 
 @app.route('/api/actividad', methods=['POST'])
 @login_required
@@ -2431,42 +2465,50 @@ def crear_actividad():
     result = cursor.fetchone()
     tipo_perito = result[0] if result else ''
     
-    cursor.execute('''
-        INSERT INTO actividades_peritos (
-            perito_id, tipo_perito, dependencia, carpeta_fiscal, denominacion,
-            tipo_actividad, apoyo_tecnico, observaciones,
-            fecha_inicio, fecha_fin, hora_inicio, hora_fin
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (
-        perito_id,
-        tipo_perito,
-        data.get('dependencia', ''),
-        data.get('carpeta_fiscal', ''),
-        data.get('denominacion', ''),
-        data['tipo_actividad'],
-        data.get('apoyo_tecnico', ''),
-        data.get('observaciones', ''),
-        data['fecha_inicio'],
-        data['fecha_fin'],
-        data.get('hora_inicio', ''),
-        data.get('hora_fin', '')
-    ))
+    try:
+        cursor.execute('''
+            INSERT INTO actividades_peritos (
+                perito_id, tipo_perito, dependencia, carpeta_fiscal, denominacion,
+                tipo_actividad, apoyo_tecnico, observaciones,
+                fecha_inicio, fecha_fin, hora_inicio, hora_fin, estado
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            perito_id,
+            tipo_perito,
+            data.get('dependencia', ''),
+            data.get('carpeta_fiscal', ''),
+            data.get('denominacion', ''),
+            data['tipo_actividad'],
+            data.get('apoyo_tecnico', ''),
+            data.get('observaciones', ''),
+            data['fecha_inicio'],
+            data['fecha_fin'],
+            data.get('hora_inicio', ''),
+            data.get('hora_fin', ''),
+            'Pendiente'  # ← Estado por defecto
+        ))
+        
+        actividad_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        # Registrar en auditoría
+        registrar_auditoria(
+            session['usuario_id'],
+            session.get('nombre_completo'),
+            'CREAR_ACTIVIDAD',
+            'ACTIVIDADES',
+            f"Actividad '{data['tipo_actividad']}' registrada",
+            actividad_id
+        )
+        
+        return jsonify({'success': True, 'id': actividad_id, 'message': 'Actividad registrada exitosamente'})
     
-    actividad_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    
-    # Registrar en auditoría
-    registrar_auditoria(
-        session['usuario_id'],
-        session.get('nombre_completo'),
-        'CREAR_ACTIVIDAD',
-        'ACTIVIDADES',
-        f"Actividad '{data['tipo_actividad']}' registrada",
-        actividad_id
-    )
-    
-    return jsonify({'success': True, 'id': actividad_id, 'message': 'Actividad registrada exitosamente'})
+    except Exception as e:
+        conn.close()
+        print(f"Error al crear actividad: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/api/actividad/<int:id>', methods=['GET'])
 @login_required
@@ -2478,7 +2520,6 @@ def get_actividad(id):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # CAMBIO: Hacer JOIN con la tabla peritos para obtener el nombre
     cursor.execute('''
         SELECT a.*, p.nombre_completo
         FROM actividades_peritos a
@@ -2508,7 +2549,7 @@ def get_actividad(id):
     actividad = {
         'id': row['id'],
         'perito_id': row['perito_id'],
-        'perito_nombre': row['nombre_completo'],  # ← AGREGADO
+        'perito_nombre': row['nombre_completo'],
         'tipo_perito': row['tipo_perito'],
         'dependencia': row['dependencia'],
         'carpeta_fiscal': row['carpeta_fiscal'],
@@ -2520,12 +2561,14 @@ def get_actividad(id):
         'fecha_fin': row['fecha_fin'],
         'hora_inicio': row['hora_inicio'],
         'hora_fin': row['hora_fin'],
+        'estado': row['estado'] if 'estado' in row.keys() else 'Pendiente',  # ← AGREGAR
         'archivos_adjuntos': archivos
     }
     
     conn.close()
     
     return jsonify(actividad)
+
 
 @app.route('/api/actividad/<int:id>', methods=['DELETE'])
 @login_required
@@ -2565,6 +2608,115 @@ def eliminar_actividad(id):
     
     return jsonify({'success': True, 'message': 'Actividad eliminada exitosamente'})
 
+#--------------------------------------------
+#CAMBIR DE ESTADO EN ACTIVIDAD
+#--------------------------------------------
+@app.route('/api/actividad/<int:id>/cambiar-estado', methods=['POST'])
+@login_required
+def cambiar_estado_actividad(id):
+    """
+    Cambia el estado de una actividad (solo perito dueño o admin)
+    """
+    data = request.json
+    nuevo_estado = data.get('estado')
+    
+    if nuevo_estado not in ['Pendiente', 'En Proceso', 'Completado']:
+        return jsonify({'success': False, 'error': 'Estado inválido'}), 400
+    
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    # Verificar que existe y permisos
+    cursor.execute('SELECT perito_id FROM actividades_peritos WHERE id = ?', (id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Actividad no encontrada'}), 404
+    
+    es_admin = session.get('rol') == 'admin'
+    if not es_admin and result[0] != session.get('perito_id'):
+        conn.close()
+        return jsonify({'success': False, 'error': 'No autorizado'}), 403
+    
+    cursor.execute('UPDATE actividades_peritos SET estado = ? WHERE id = ?', (nuevo_estado, id))
+    conn.commit()
+    conn.close()
+    
+    # Auditoría
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'CAMBIAR_ESTADO_ACTIVIDAD',
+        'ACTIVIDADES',
+        f"Estado cambiado a '{nuevo_estado}' en actividad ID {id}",
+        id
+    )
+    
+    return jsonify({'success': True, 'message': 'Estado actualizado'})
+
+
+#--------------------------------------------
+#   EDITAR ACTIVIDAD
+#--------------------------------------------
+@app.route('/api/actividad/<int:id>', methods=['PUT'])
+@login_required
+def editar_actividad(id):
+    """
+    Edita una actividad (solo perito dueño o admin)
+    """
+    data = request.json
+    
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    # Verificar permisos
+    cursor.execute('SELECT perito_id FROM actividades_peritos WHERE id = ?', (id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Actividad no encontrada'}), 404
+    
+    es_admin = session.get('rol') == 'admin'
+    if not es_admin and result[0] != session.get('perito_id'):
+        conn.close()
+        return jsonify({'success': False, 'error': 'No autorizado'}), 403
+    
+    cursor.execute('''
+        UPDATE actividades_peritos
+        SET dependencia = ?, carpeta_fiscal = ?, denominacion = ?,
+            tipo_actividad = ?, apoyo_tecnico = ?, observaciones = ?,
+            fecha_inicio = ?, fecha_fin = ?, hora_inicio = ?, hora_fin = ?
+        WHERE id = ?
+    ''', (
+        data.get('dependencia', ''),
+        data.get('carpeta_fiscal', ''),
+        data.get('denominacion', ''),
+        data['tipo_actividad'],
+        data.get('apoyo_tecnico', ''),
+        data.get('observaciones', ''),
+        data['fecha_inicio'],
+        data['fecha_fin'],
+        data.get('hora_inicio', ''),
+        data.get('hora_fin', ''),
+        id
+    ))
+    
+    conn.commit()
+    conn.close()
+    
+    # Auditoría
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'EDITAR_ACTIVIDAD',
+        'ACTIVIDADES',
+        f"Actividad ID {id} editada",
+        id
+    )
+    
+    return jsonify({'success': True, 'message': 'Actividad actualizada'})
 
 
 @app.route('/api/actividad/<int:id>/subir-archivos', methods=['POST'])

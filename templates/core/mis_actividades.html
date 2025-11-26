@@ -105,6 +105,7 @@
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Fecha Inicio</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Fecha Fin</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Horario</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Estado</th> <!-- ← NUEVO -->
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Acciones</th>
                         </tr>
                     </thead>
@@ -124,10 +125,34 @@
                                 Todo el día
                                 {% endif %}
                             </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if actividad.estado == 'Completado' %}
+                                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i>Completado
+                                </span>
+                                {% elif actividad.estado == 'En Proceso' %}
+                                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                    <i class="fas fa-spinner mr-1"></i>En Proceso
+                                </span>
+                                {% else %}
+                                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                    <i class="fas fa-clock mr-1"></i>Pendiente
+                                </span>
+                                {% endif %}
+                            </td>
+
                             <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                                 <button onclick="verDetalle({{ actividad.id }})" 
                                         class="text-blue-600 hover:text-blue-800" title="Ver detalle">
                                     <i class="fas fa-eye"></i>
+                                </button>
+                                <button onclick="abrirModalEditar({{ actividad.id }})" 
+                                        class="text-green-600 hover:text-green-800" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="cambiarEstado({{ actividad.id }})" 
+                                        class="text-orange-600 hover:text-orange-800" title="Cambiar estado">
+                                    <i class="fas fa-sync-alt"></i>
                                 </button>
                                 <button onclick="eliminar({{ actividad.id }})" 
                                         class="text-red-600 hover:text-red-800" title="Eliminar">
@@ -147,6 +172,8 @@
                             </td>
                         </tr>
                         {% endfor %}
+                    
+
                     </tbody>
                 </table>
             </div>
@@ -500,38 +527,77 @@
                 hora_fin: document.getElementById('hora_fin').value
             };
             
-            fetch('/api/actividad', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    if (archivosSeleccionados.length > 0) {
-                        const formData = new FormData();
-                        archivosSeleccionados.forEach(archivo => {
-                            formData.append('archivos', archivo);
-                        });
-                        
-                        return fetch(`/api/actividad/${result.id}/subir-archivos`, {
-                            method: 'POST',
-                            body: formData
-                        }).then(() => result);
+            // Determinar si es edición o creación
+            if (modoEdicion && actividadEditandoId) {
+                // MODO EDICIÓN
+                fetch(`/api/actividad/${actividadEditandoId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        // Si hay archivos nuevos, subirlos
+                        if (archivosSeleccionados.length > 0) {
+                            const formData = new FormData();
+                            archivosSeleccionados.forEach(archivo => {
+                                formData.append('archivos', archivo);
+                            });
+                            
+                            return fetch(`/api/actividad/${actividadEditandoId}/subir-archivos`, {
+                                method: 'POST',
+                                body: formData
+                            }).then(() => result);
+                        }
+                        return result;
+                    } else {
+                        throw new Error(result.error);
                     }
-                    return result;
-                } else {
-                    throw new Error(result.error);
-                }
-            })
-            .then(result => {
-                alert('✅ Actividad registrada exitosamente');
-                location.reload();
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('❌ Error: ' + error.message);
-            });
+                })
+                .then(result => {
+                    alert('✅ Actividad actualizada exitosamente');
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ Error: ' + error.message);
+                });
+            } else {
+                // MODO CREACIÓN
+                fetch('/api/actividad', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        if (archivosSeleccionados.length > 0) {
+                            const formData = new FormData();
+                            archivosSeleccionados.forEach(archivo => {
+                                formData.append('archivos', archivo);
+                            });
+                            
+                            return fetch(`/api/actividad/${result.id}/subir-archivos`, {
+                                method: 'POST',
+                                body: formData
+                            }).then(() => result);
+                        }
+                        return result;
+                    } else {
+                        throw new Error(result.error);
+                    }
+                })
+                .then(result => {
+                    alert('✅ Actividad registrada exitosamente');
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ Error: ' + error.message);
+                });
+            }
         });
 
         function verDetalle(id) {
@@ -763,6 +829,82 @@
                 });
             }
         }
+
+        function cambiarEstado(id) {
+            const estadoActual = prompt('Ingresa el nuevo estado:\n1. Pendiente\n2. En Proceso\n3. Completado');
+            
+            let nuevoEstado;
+            if (estadoActual === '1') nuevoEstado = 'Pendiente';
+            else if (estadoActual === '2') nuevoEstado = 'En Proceso';
+            else if (estadoActual === '3') nuevoEstado = 'Completado';
+            else {
+                alert('❌ Opción inválida');
+                return;
+            }
+            
+            fetch(`/api/actividad/${id}/cambiar-estado`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado: nuevoEstado })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('✅ Estado actualizado');
+                    location.reload();
+                } else {
+                    alert('❌ Error: ' + result.error);
+                }
+            })
+            .catch(error => alert('❌ Error al cambiar estado'));
+        }
+
+        
+        let modoEdicion = false; // Variable global para saber si estamos editando
+        let actividadEditandoId = null; // ID de la actividad que se está editando
+
+        function mostrarModalNueva() {
+            modoEdicion = false; // Resetear modo
+            actividadEditandoId = null;
+            cargarActividades();
+            document.getElementById('formActividad').reset();
+            archivosSeleccionados = [];
+            document.getElementById('listaArchivos').innerHTML = '';
+            document.getElementById('modalActividad').classList.remove('hidden');
+        }
+
+        function abrirModalEditar(id) {
+            modoEdicion = true; // Activar modo edición
+            actividadEditandoId = id;
+            
+            fetch(`/api/actividad/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Cargar datos en el formulario
+                    document.getElementById('dependencia').value = data.dependencia || '';
+                    document.getElementById('carpeta_fiscal').value = data.carpeta_fiscal || '';
+                    document.getElementById('denominacion').value = data.denominacion || '';
+                    document.getElementById('tipo_actividad').value = data.tipo_actividad;
+                    document.getElementById('apoyo_tecnico').value = data.apoyo_tecnico || '';
+                    document.getElementById('observaciones').value = data.observaciones || '';
+                    document.getElementById('fecha_inicio').value = data.fecha_inicio;
+                    document.getElementById('fecha_fin').value = data.fecha_fin;
+                    document.getElementById('hora_inicio').value = data.hora_inicio || '';
+                    document.getElementById('hora_fin').value = data.hora_fin || '';
+                    
+                    cargarActividades();
+                    archivosSeleccionados = []; // Limpiar archivos
+                    document.getElementById('listaArchivos').innerHTML = '';
+                    
+                    document.getElementById('modalActividad').classList.remove('hidden');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ Error al cargar actividad para editar');
+                });
+        }
+
+
 
         // Calcular estadísticas
         window.addEventListener('load', function() {
