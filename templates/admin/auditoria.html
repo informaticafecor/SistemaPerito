@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auditoría - Sistema Perito</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Navegación Principal -->
+    <nav class="bg-blue-900 text-white shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-3">
+                <!-- Logo y Título -->
+                <div class="flex items-center space-x-3">
+                    <img src="{{ url_for('static', filename='imagenes/logompo.png') }}" alt="Logo" class="w-10 h-10 object-contain">
+                    <div class="hidden md:block">
+                        <h1 class="text-xl font-bold">SistemaPerito</h1>
+                        <p class="text-xs text-blue-200">Gestión de Asignaciones</p>
+                    </div>
+                </div>
+                
+                <!-- Menú de navegación -->
+                <div class="flex items-center space-x-1">
+                    <a href="/" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-home mr-1"></i>Dashboard
+                    </a>
+                    <a href="/nuevo" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-plus mr-1"></i>Nueva
+                    </a>
+                    <a href="/buscar" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-search mr-1"></i>Buscar
+                    </a>
+                    <a href="/calendario" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-calendar mr-1"></i>Calendario
+                    </a>
+                    <a href="/peritos" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-users mr-1"></i>Peritos
+                    </a>
+                    <a href="/actividades-admin" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-clipboard-list mr-1"></i>Actividades
+                    </a>
+                    <a href="/reportes" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-chart-bar mr-1"></i>Reportes
+                    </a>
+                    <a href="/vacaciones" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-umbrella-beach mr-1"></i>Vacaciones
+                    </a>
+                    <a href="/usuarios" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
+                        <i class="fas fa-user-cog mr-1"></i>Usuarios
+                    </a>
+                    <a href="/auditoria" class="px-3 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition text-sm">
+                        <i class="fas fa-history mr-1"></i>Auditoría
+                    </a>
+                </div>
+                
+                <!-- Usuario y Salir -->
+                <div class="flex items-center space-x-3 border-l border-blue-700 pl-4">
+                    <div class="text-right hidden md:block">
+                        <p class="text-sm font-semibold">{{ session.nombre_completo or session.usuario }}</p>
+                        <p class="text-xs text-blue-300">Administrador</p>
+                    </div>
+                    <a href="/logout" class="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition text-sm font-semibold">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Salir
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <div class="container mx-auto px-4 py-8">
+        
+        <!-- Encabezado -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-800">
+                    <i class="fas fa-history text-blue-600 mr-3"></i>
+                    Auditoría del Sistema
+                </h2>
+                <p class="text-gray-600 mt-1">Registro completo de todas las acciones realizadas en el sistema</p>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="limpiarFiltros()" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                    <i class="fas fa-eraser mr-2"></i>Limpiar Filtros
+                </button>
+                <a href="/api/auditoria/exportar" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                    <i class="fas fa-file-excel mr-2"></i>Exportar Excel
+                </a>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+                <i class="fas fa-filter mr-2"></i>Filtros de Búsqueda
+            </h3>
+            <form method="GET" action="/auditoria" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Usuario</label>
+                    <input type="text" name="usuario" value="{{ filtros.usuario }}"
+                           placeholder="Nombre del usuario"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Acción</label>
+                    <select name="accion" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Todas las acciones</option>
+                        {% for accion in acciones %}
+                        <option value="{{ accion }}" {% if filtros.accion == accion %}selected{% endif %}>{{ accion }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Módulo</label>
+                    <select name="modulo" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Todos los módulos</option>
+                        {% for modulo in modulos %}
+                        <option value="{{ modulo }}" {% if filtros.modulo == modulo %}selected{% endif %}>{{ modulo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Desde</label>
+                    <input type="date" name="fecha_desde" value="{{ filtros.fecha_desde }}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Hasta</label>
+                    <input type="date" name="fecha_hasta" value="{{ filtros.fecha_hasta }}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="md:col-span-5 flex justify-end">
+                    <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-search mr-2"></i>Buscar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Estadísticas -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+                <p class="text-sm font-semibold text-gray-600 uppercase">Total Registros</p>
+                <p class="text-3xl font-bold text-gray-900 mt-2">{{ registros|length }}</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+                <p class="text-sm font-semibold text-gray-600 uppercase">Últimas 24h</p>
+                <p class="text-3xl font-bold text-green-600 mt-2" id="registros24h">0</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500">
+                <p class="text-sm font-semibold text-gray-600 uppercase">Última Semana</p>
+                <p class="text-3xl font-bold text-purple-600 mt-2" id="registrosSemana">0</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
+                <p class="text-sm font-semibold text-gray-600 uppercase">Usuarios Activos</p>
+                <p class="text-3xl font-bold text-orange-600 mt-2" id="usuariosActivos">0</p>
+            </div>
+        </div>
+
+        <!-- Tabla de Auditoría -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-500">
+                <h3 class="text-xl font-bold text-white">
+                    <i class="fas fa-list mr-2"></i>Registro de Auditoría
+                </h3>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Fecha/Hora</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Usuario</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Acción</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Módulo</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Detalles</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">IP</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for registro in registros %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{{ registro.id }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                <i class="far fa-clock text-blue-500 mr-1"></i>
+                                <span class="font-mono">{{ registro.fecha }}</span>
+                                <p class="text-xs text-gray-500">Hora de Perú (GMT-5)</p>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 font-semibold">
+                                <i class="fas fa-user text-gray-500 mr-1"></i>
+                                {{ registro.usuario_nombre }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                    {% if 'CREAR' in registro.accion %}bg-green-100 text-green-800
+                                    {% elif 'EDITAR' in registro.accion or 'CAMBIAR' in registro.accion %}bg-yellow-100 text-yellow-800
+                                    {% elif 'ELIMINAR' in registro.accion or 'CANCELAR' in registro.accion %}bg-red-100 text-red-800
+                                    {% elif 'LOGIN' in registro.accion %}bg-blue-100 text-blue-800
+                                    {% elif 'LOGOUT' in registro.accion %}bg-gray-100 text-gray-800
+                                    {% else %}bg-purple-100 text-purple-800
+                                    {% endif %}">
+                                    {{ registro.accion }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                                <span class="px-2 py-1 bg-blue-50 text-blue-800 rounded text-xs font-semibold">
+                                    {{ registro.modulo }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate" title="{{ registro.detalles }}">
+                                {{ registro.detalles or '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                <i class="fas fa-network-wired text-green-500 mr-1"></i>
+                                {{ registro.ip_address }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <button onclick="verDetalleCompleto({{ registro.id }})" 
+                                        class="text-blue-600 hover:text-blue-800" 
+                                        title="Ver detalle completo">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="px-6 py-12 text-center">
+                                <i class="fas fa-history text-6xl text-gray-300 mb-4"></i>
+                                <p class="text-gray-500">No hay registros de auditoría</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- PAGINACIÓN -->
+                {% if total_paginas > 1 %}
+                <div class="mt-6 flex justify-center items-center space-x-2">
+                    <!-- Primera página -->
+                    {% if page > 1 %}
+                    <a href="?page=1&usuario={{ filtros.usuario }}&accion={{ filtros.accion }}&modulo={{ filtros.modulo }}&fecha_desde={{ filtros.fecha_desde }}&fecha_hasta={{ filtros.fecha_hasta }}" 
+                    class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                    {% endif %}
+
+                    <!-- Página anterior -->
+                    {% if page > 1 %}
+                    <a href="?page={{ page - 1 }}&usuario={{ filtros.usuario }}&accion={{ filtros.accion }}&modulo={{ filtros.modulo }}&fecha_desde={{ filtros.fecha_desde }}&fecha_hasta={{ filtros.fecha_hasta }}" 
+                    class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        <i class="fas fa-angle-left"></i> Anterior
+                    </a>
+                    {% endif %}
+
+                    <!-- Páginas numeradas -->
+                    {% for p in range([1, page - 2]|max, [total_paginas + 1, page + 3]|min) %}
+                        {% if p == page %}
+                        <span class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold">{{ p }}</span>
+                        {% else %}
+                        <a href="?page={{ p }}&usuario={{ filtros.usuario }}&accion={{ filtros.accion }}&modulo={{ filtros.modulo }}&fecha_desde={{ filtros.fecha_desde }}&fecha_hasta={{ filtros.fecha_hasta }}" 
+                        class="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">{{ p }}</a>
+                        {% endif %}
+                    {% endfor %}
+
+                    <!-- Página siguiente -->
+                    {% if page < total_paginas %}
+                    <a href="?page={{ page + 1 }}&usuario={{ filtros.usuario }}&accion={{ filtros.accion }}&modulo={{ filtros.modulo }}&fecha_desde={{ filtros.fecha_desde }}&fecha_hasta={{ filtros.fecha_hasta }}" 
+                    class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Siguiente <i class="fas fa-angle-right"></i>
+                    </a>
+                    {% endif %}
+
+                    <!-- Última página -->
+                    {% if page < total_paginas %}
+                    <a href="?page={{ total_paginas }}&usuario={{ filtros.usuario }}&accion={{ filtros.accion }}&modulo={{ filtros.modulo }}&fecha_desde={{ filtros.fecha_desde }}&fecha_hasta={{ filtros.fecha_hasta }}" 
+                    class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        <i class="fas fa-angle-double-right"></i>
+                    </a>
+                    {% endif %}
+
+                    <!-- Info de registros -->
+                    <span class="ml-4 text-sm text-gray-600">
+                        Página {{ page }} de {{ total_paginas }} | Total: {{ total_registros }} registros
+                    </span>
+                </div>
+                {% endif %}                
+
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Detalle Completo -->
+    <div id="modalDetalle" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" onclick="cerrarModalClickAfuera(event)">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full my-8" onclick="event.stopPropagation()">
+                <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex justify-between items-center rounded-t-xl">
+                    <h3 class="text-xl font-bold text-white">
+                        <i class="fas fa-info-circle mr-2"></i>Detalle del Registro
+                    </h3>
+                    <button onclick="cerrarModalDetalle()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <div id="contenidoDetalle" class="p-6">
+                    <!-- Se llenará con JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const todosRegistros = {{ registros|tojson|safe }};
+
+        // Calcular estadísticas
+        window.addEventListener('load', function() {
+            const ahora = new Date();
+            const hace24h = new Date(ahora.getTime() - (24 * 60 * 60 * 1000));
+            const hace7dias = new Date(ahora.getTime() - (7 * 24 * 60 * 60 * 1000));
+            
+            let registros24h = 0;
+            let registrosSemana = 0;
+            const usuarios = new Set();
+            
+            todosRegistros.forEach(reg => {
+                const fecha = new Date(reg.fecha);
+                if (fecha >= hace24h) registros24h++;
+                if (fecha >= hace7dias) registrosSemana++;
+                usuarios.add(reg.usuario_nombre);
+            });
+            
+            document.getElementById('registros24h').textContent = registros24h;
+            document.getElementById('registrosSemana').textContent = registrosSemana;
+            document.getElementById('usuariosActivos').textContent = usuarios.size;
+        });
+
+        function limpiarFiltros() {
+            window.location.href = '/auditoria';
+        }
+
+        function verDetalleCompleto(id) {
+            const registro = todosRegistros.find(r => r.id === id);
+            if (!registro) return;
+
+            const contenido = `
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2 bg-blue-50 p-4 rounded-lg">
+                            <h4 class="text-lg font-bold text-blue-900">
+                                <i class="fas fa-file-alt mr-2"></i>Registro #${registro.id}
+                            </h4>
+                        </div>
+                        
+                        <div>
+                            <label class="text-sm font-semibold text-gray-600">Fecha y Hora:</label>
+                            <p class="text-gray-800">${registro.fecha}</p>
+                        </div>
+                        
+                        <div>
+                            <label class="text-sm font-semibold text-gray-600">Usuario:</label>
+                            <p class="text-gray-800 font-bold">${registro.usuario_nombre}</p>
+                        </div>
+                        
+                        <div>
+                            <label class="text-sm font-semibold text-gray-600">Acción:</label>
+                            <p class="text-gray-800 font-semibold">${registro.accion}</p>
+                        </div>
+                        
+                        <div>
+                            <label class="text-sm font-semibold text-gray-600">Módulo:</label>
+                            <p class="text-gray-800">${registro.modulo}</p>
+                        </div>
+                        
+                        <div class="col-span-2">
+                            <label class="text-sm font-semibold text-gray-600">Detalles:</label>
+                            <p class="text-gray-800 bg-gray-50 p-3 rounded">${registro.detalles || 'Sin detalles'}</p>
+                        </div>
+                        
+                        <div>
+                            <label class="text-sm font-semibold text-gray-600">Dirección IP:</label>
+                            <p class="text-gray-800">${registro.ip_address}</p>
+                        </div>
+                        
+                        <div class="col-span-2">
+                            <label class="text-sm font-semibold text-gray-600">Navegador/User Agent:</label>
+                            <p class="text-gray-800 text-xs bg-gray-50 p-2 rounded break-all">${registro.user_agent}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button onclick="cerrarModalDetalle()" 
+                            class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                        <i class="fas fa-times mr-2"></i>Cerrar
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('contenidoDetalle').innerHTML = contenido;
+            document.getElementById('modalDetalle').classList.remove('hidden');
+        }
+
+
+
+        
+        function cerrarModalDetalle() {
+            document.getElementById('modalDetalle').classList.add('hidden');
+        }
+
+        function cerrarModalClickAfuera(event) {
+            if (event.target.id === 'modalDetalle') {
+                cerrarModalDetalle();
+            }
+        }
+    </script>
+</body>
+</html>

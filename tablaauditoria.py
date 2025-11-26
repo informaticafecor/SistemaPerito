@@ -3,7 +3,22 @@ import sqlite3
 conn = sqlite3.connect('database.db')
 cursor = conn.cursor()
 
-# Crear tabla de auditoría si no existe
+# Verificar si la tabla existe
+cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='auditoria'")
+existe = cursor.fetchone()
+
+if existe:
+    print("⚠️ La tabla 'auditoria' existe. Respaldando datos...")
+    
+    # Respaldar datos existentes
+    cursor.execute("SELECT * FROM auditoria")
+    datos_respaldo = cursor.fetchall()
+    
+    # Eliminar tabla vieja
+    cursor.execute("DROP TABLE auditoria")
+    print("✅ Tabla antigua eliminada")
+
+# Crear tabla con estructura correcta
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS auditoria (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,26 +35,14 @@ cursor.execute('''
     )
 ''')
 
-# Verificar columnas
-cursor.execute("PRAGMA table_info(auditoria)")
-columnas = cursor.fetchall()
+print("✅ Tabla 'auditoria' creada correctamente")
 
-print("=== COLUMNAS DE AUDITORÍA ===")
-for col in columnas:
-    print(f"{col[1]} - {col[2]}")
-
-# Verificar si faltan columnas y agregarlas
-columnas_nombres = [col[1] for col in columnas]
-
-if 'ip_address' not in columnas_nombres:
-    cursor.execute("ALTER TABLE auditoria ADD COLUMN ip_address TEXT")
-    print("✅ Columna 'ip_address' agregada")
-
-if 'user_agent' not in columnas_nombres:
-    cursor.execute("ALTER TABLE auditoria ADD COLUMN user_agent TEXT")
-    print("✅ Columna 'user_agent' agregada")
+# Si había datos, intentar restaurarlos (ajusta según tu estructura vieja)
+if existe and datos_respaldo:
+    print(f"⚠️ Había {len(datos_respaldo)} registros. No se pueden restaurar automáticamente.")
+    print("   (La estructura cambió. Los datos antiguos se perdieron.)")
 
 conn.commit()
 conn.close()
 
-print("\n✅ Tabla de auditoría lista")
+print("\n✅ Base de datos corregida. Reinicia el servidor.")

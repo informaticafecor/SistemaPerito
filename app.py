@@ -313,25 +313,50 @@ def init_db():
 # FUNCIONES DE AUTENTICACIÓN
 # ============================================
 
-def registrar_auditoria(usuario_id, usuario_nombre, accion, modulo=None, descripcion=None, registro_id=None):
+
+def registrar_auditoria(usuario_id, usuario_nombre, accion, modulo, descripcion='', registro_id=None):
     """
-    Registra una acción en la tabla de auditoría
+    Registra una acción en la tabla de auditoría con IP, User-Agent y hora de Perú
     """
     try:
         conn = sqlite3.connect('database.db')
         cursor = conn.cursor()
         
+        # Obtener IP y User-Agent
         ip_address = request.remote_addr if request else 'Sistema'
+        user_agent = request.headers.get('User-Agent', 'Desconocido')[:200] if request else 'Sistema'
         
+        # Obtener hora actual de Perú (GMT-5)
+        from datetime import datetime, timedelta
+        fecha_peru = (datetime.utcnow() - timedelta(hours=5)).strftime('%Y-%m-%d %H:%M:%S')
+        
+        # USAR NOMBRES CORRECTOS: detalles y fecha
         cursor.execute('''
-            INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, descripcion, registro_id, ip_address)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (usuario_id, usuario_nombre, accion, modulo, descripcion, registro_id, ip_address))
+            INSERT INTO auditoria (
+                usuario_id, usuario_nombre, accion, modulo, 
+                detalles, registro_id, ip_address, user_agent, fecha
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            usuario_id,
+            usuario_nombre,
+            accion,
+            modulo,
+            descripcion,  # Se mapea a 'detalles'
+            registro_id,
+            ip_address,
+            user_agent,
+            fecha_peru  # Se mapea a 'fecha'
+        ))
         
         conn.commit()
         conn.close()
+        return True
     except Exception as e:
-        print(f"Error al registrar auditoría: {e}")
+        print(f"❌ Error al registrar auditoría: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
 
 def login_required(f):
     """
@@ -946,6 +971,192 @@ def eliminar_usuario(id):
     return jsonify({'success': True, 'message': 'Usuario eliminado exitosamente'})
 
 
+
+@app.route('/auditoria')
+@admin_required
+def auditoria():
+    """
+    Página de auditoría - solo para administradores
+    """
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Obtener filtros
+    filtro_usuario = request.args.get('usuario', '')
+    filtro_accion = request.args.get('accion', '')
+    filtro_modulo = request.args.get('modulo', '')
+    filtro_fecha_desde = request.args.get('fecha_desde', '')
+    filtro_fecha_hasta = request.args.get('fecha_hasta', '')
+    
+    # PAGINACIÓN
+    page = int(request.args.get('page', 1))
+    per_page = 50  # Registros por página
+    offset = (page - 1) * per_page
+    
+    # Construir query base
+    query_count = 'SELECT COUNT(*) as total FROM auditoria WHERE 1=1'
+    query = 'SELECT * FROM auditoria WHERE 1=1'
+    params = []
+    
+    if filtro_usuario:
+        query += ' AND usuario_nombre LIKE ?'
+        query_count += ' AND usuario_nombre LIKE ?'
+        params.append(f'%{filtro_usuario}%')
+    
+    if filtro_accion:
+        query += ' AND accion = ?'
+        query_count += ' AND accion = ?'
+        params.append(filtro_accion)
+    
+    if filtro_modulo:
+        query += ' AND modulo = ?'
+        query_count += ' AND modulo = ?'
+        params.append(filtro_modulo)
+    
+    if filtro_fecha_desde:
+        query += ' AND DATE(fecha) >= ?'  # USAR 'fecha'
+        query_count += ' AND DATE(fecha) >= ?'
+        params.append(filtro_fecha_desde)
+    
+    if filtro_fecha_hasta:
+        query += ' AND DATE(fecha) <= ?'  # USAR 'fecha'
+        query_count += ' AND DATE(fecha) <= ?'
+        params.append(filtro_fecha_hasta)
+    
+    try:
+        # Obtener total de registros
+        cursor.execute(query_count, params)
+        total_registros = cursor.fetchone()['total']
+        total_paginas = (total_registros + per_page - 1) // per_page
+        
+        # Obtener registros de la página actual
+        query += f' ORDER BY fecha DESC LIMIT {per_page} OFFSET {offset}'  # USAR 'fecha'
+        cursor.execute(query, params)
+        
+        registros = []
+        for row in cursor.fetchall():
+            registros.append({
+                'id': row['id'],
+                'fecha': row['fecha'],  # USAR 'fecha'
+                'usuario_nombre': row['usuario_nombre'],
+                'accion': row['accion'],
+                'modulo': row['modulo'],
+                'detalles': row['detalles'] if row['detalles'] else '',  # USAR 'detalles'
+                'ip_address': row['ip_address'] if row['ip_address'] else 'N/A',
+                'user_agent': row['user_agent'] if row['user_agent'] else 'N/A'
+            })
+        
+
+
+        # DEBUG: Ver cuántos registros se enviaron
+        print(f"🔍 DEBUG: Se encontraron {len(registros)} registros")
+        if registros:
+            print(f"🔍 DEBUG: Primer registro: {registros[0]}")
+                    
+        # Obtener acciones únicas
+        cursor.execute('SELECT DISTINCT accion FROM auditoria ORDER BY accion')
+        acciones = [row['accion'] for row in cursor.fetchall()]
+        
+        # Obtener módulos únicos
+        cursor.execute('SELECT DISTINCT modulo FROM auditoria ORDER BY modulo')
+        modulos = [row['modulo'] for row in cursor.fetchall()]
+        
+        conn.close()
+        
+        return render_template('admin/auditoria.html', 
+                              registros=registros,
+                              acciones=acciones,
+                              modulos=modulos,
+                              filtros={
+                                  'usuario': filtro_usuario,
+                                  'accion': filtro_accion,
+                                  'modulo': filtro_modulo,
+                                  'fecha_desde': filtro_fecha_desde,
+                                  'fecha_hasta': filtro_fecha_hasta
+                              },
+                              page=page,
+                              total_paginas=total_paginas,
+                              total_registros=total_registros)
+    except Exception as e:
+        conn.close()
+        print(f"❌ Error en auditoría: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"Error al cargar auditoría: {str(e)}", 500
+
+
+
+@app.route('/api/auditoria/exportar')
+@admin_required
+def exportar_auditoria():
+    """
+    Exporta la auditoría a Excel con formato
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+    
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Obtener todos los registros - USAR 'fecha'
+    cursor.execute('SELECT * FROM auditoria ORDER BY fecha DESC')
+    
+    # Crear libro Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Auditoría"
+    
+    # Estilo de cabeceras
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    
+    # Cabeceras
+    headers = ['ID', 'Fecha/Hora', 'Usuario', 'Acción', 'Módulo', 'Detalles', 'IP', 'Navegador']
+    for col, header in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Datos - USAR 'fecha' y 'detalles'
+    for row_idx, row in enumerate(cursor.fetchall(), start=2):
+        ws.cell(row=row_idx, column=1, value=row['id'])
+        ws.cell(row=row_idx, column=2, value=row['fecha'])  # CAMBIO AQUÍ
+        ws.cell(row=row_idx, column=3, value=row['usuario_nombre'])
+        ws.cell(row=row_idx, column=4, value=row['accion'])
+        ws.cell(row=row_idx, column=5, value=row['modulo'])
+        ws.cell(row=row_idx, column=6, value=row['detalles'] or '')  # CAMBIO AQUÍ
+        ws.cell(row=row_idx, column=7, value=row['ip_address'] if row['ip_address'] else 'N/A')
+        ws.cell(row=row_idx, column=8, value=row['user_agent'][:50] if row['user_agent'] else 'N/A')
+    
+    # Ajustar ancho de columnas
+    ws.column_dimensions['A'].width = 8
+    ws.column_dimensions['B'].width = 20
+    ws.column_dimensions['C'].width = 25
+    ws.column_dimensions['D'].width = 25
+    ws.column_dimensions['E'].width = 20
+    ws.column_dimensions['F'].width = 50
+    ws.column_dimensions['G'].width = 15
+    ws.column_dimensions['H'].width = 40
+    
+    conn.close()
+    
+    # Guardar en memoria
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    # Crear respuesta
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'auditoria_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+    )
+
 # ============================================================================
 # RUTAS PRINCIPALES
 # ============================================================================
@@ -1512,6 +1723,16 @@ def crear_asignacion():
     
     # Registrar en historial
     registrar_historial(asignacion_id, 'Creado', 'Asignación creada exitosamente')
+
+    # PARA AUDITORIA --------------------------------------
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'CREAR_ASIGNACION',
+        'ASIGNACIONES',
+        f"Asignación creada: Expediente {data.get('expediente', 'S/N')}",
+        asignacion_id
+    )
     
     return jsonify({
         'success': True,
@@ -1573,6 +1794,16 @@ def actualizar_asignacion(id):
     
     # Registrar en historial
     registrar_historial(id, 'Modificado', f'Campos actualizados: {", ".join(campos)}')
+
+    # ... código ...
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'EDITAR_ASIGNACION',
+        'ASIGNACIONES',
+        f"Asignación ID {id} editada",
+        id
+    )    
     
     return jsonify({
         'success': True,
@@ -1606,6 +1837,17 @@ def eliminar_asignacion(id):
     
     # Registrar en historial
     registrar_historial(id, 'Cancelado', 'Asignación cancelada por el usuario')
+
+    # ... código ...
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'ELIMINAR_ASIGNACION',
+        'ASIGNACIONES',
+        f"Asignación ID {id} eliminada",
+        id
+    )
+
     
     return jsonify({
         'success': True,
@@ -1614,33 +1856,43 @@ def eliminar_asignacion(id):
 
 
 @app.route('/api/asignacion/<int:id>/cambiar-estado', methods=['PUT'])
-@login_required
-def cambiar_estado_asignacion(id):
+@admin_required
+def cambiar_estado(id):
     """
     Cambia el estado de una asignación
     """
     data = request.json
     nuevo_estado = data.get('estado')
     
+    # Validar estado
     if nuevo_estado not in ['Pendiente', 'En Proceso', 'Completado', 'Cancelado']:
-        return jsonify({'error': 'Estado inválido'}), 400
+        return jsonify({'success': False, 'error': 'Estado inválido'}), 400
     
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     
+    # Verificar que existe
+    cursor.execute('SELECT id FROM asignaciones WHERE id = ?', (id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({'success': False, 'error': 'Asignación no encontrada'}), 404
+    
+    # Actualizar estado
     cursor.execute('UPDATE asignaciones SET estado = ? WHERE id = ?', (nuevo_estado, id))
     conn.commit()
     conn.close()
     
-    # Registrar en historial
-    registrar_historial(id, 'Modificado', f'Estado cambiado a: {nuevo_estado}')
+    # ← AGREGAR AUDITORÍA AQUÍ
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'CAMBIAR_ESTADO',
+        'ASIGNACIONES',
+        f"Estado cambiado a '{nuevo_estado}' en asignación ID {id}",
+        id
+    )
     
-    return jsonify({
-        'success': True,
-        'message': f'Estado actualizado a {nuevo_estado}'
-    })
-
-
+    return jsonify({'success': True, 'message': 'Estado actualizado correctamente'})
 
 @app.route('/api/verificar-disponibilidad', methods=['POST'])
 @login_required
@@ -1767,6 +2019,19 @@ def buscar_asignaciones():
     perito_id = session.get('perito_id')
     es_admin = session.get('rol') == 'admin'
     
+    # ... al inicio ...
+    query = request.args.get('q', '')
+    
+    if query:
+        registrar_auditoria(
+            session['usuario_id'],
+            session.get('nombre_completo'),
+            'BUSCAR',
+            'BUSQUEDAS',
+            f"Búsqueda realizada: '{query}'",
+            None
+        )
+
     # Construir query según el campo
     if campo == 'todos':
         query = '''
@@ -2171,15 +2436,17 @@ def subir_archivos(id):
     )
     
     # Registrar en auditoría
+    nombres_archivos = [a['nombre_original'] for a in archivos_guardados]
+    detalles = f"{len(archivos_guardados)} archivo(s) subido(s): {', '.join(nombres_archivos)}"
+
     registrar_auditoria(
         session['usuario_id'],
-        session.get('nombre_completo', session['usuario']),
+        session.get('nombre_completo'),
         'CARGA_ARCHIVO',
         'ASIGNACIONES',
-        f"{len(archivos_guardados)} archivo(s) subido(s) a asignación ID {id}",
+        detalles,  # ← AQUÍ SE INCLUYEN LOS NOMBRES
         id
     )
-    
     return jsonify({
         'success': True,
         'archivos_guardados': len(archivos_guardados),
@@ -2657,7 +2924,7 @@ def cambiar_estado_actividad(id):
 
 
 #--------------------------------------------
-#   EDITAR ACTIVIDAD
+#   EDITAR ACTIVIDAD ddddddddddddddddddddddddd
 #--------------------------------------------
 @app.route('/api/actividad/<int:id>', methods=['PUT'])
 @login_required
@@ -2798,15 +3065,19 @@ def subir_archivos_actividad(id):
     conn.close()
     
     # Auditoría
+    # Registrar en auditoría
+    nombres_archivos = [a['nombre_original'] for a in archivos_guardados]
+    detalles = f"{len(archivos_guardados)} archivo(s) subido(s): {', '.join(nombres_archivos)}"
+
     registrar_auditoria(
         session['usuario_id'],
         session.get('nombre_completo'),
         'CARGA_ARCHIVO',
         'ACTIVIDADES',
-        f"{len(archivos_guardados)} archivo(s) subido(s) a actividad ID {id}",
+        detalles,  # ← AQUÍ SE INCLUYEN LOS NOMBRES
         id
     )
-    
+
     return jsonify({
         'success': True,
         'archivos_guardados': len(archivos_guardados),
@@ -3015,6 +3286,16 @@ def crear_vacacion():
     vacacion_id = cursor.lastrowid
     conn.commit()
     conn.close()
+
+    # ... al final, después del commit ...
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'CREAR_VACACION',
+        'VACACIONES',
+        f"Vacación registrada para perito ID {data['perito_id']}",
+        vacacion_id
+    )       
     
     return jsonify({
         'success': True,
@@ -3069,12 +3350,25 @@ def eliminar_vacacion(id):
     cursor.execute('DELETE FROM vacaciones WHERE id = ?', (id,))
     conn.commit()
     conn.close()
+    # ... después del DELETE ...
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'ELIMINAR_VACACION',
+        'VACACIONES',
+        f"Vacación ID {id} eliminada",
+        id
+    )
+
     
     return jsonify({
         'success': True,
         'message': 'Vacaciones eliminadas correctamente'
     })
 
+# ============================================================================
+# #TODDO BIEN HASTA AQUI
+# ============================================================================
 # ============================================================================
 # INICIALIZACIÓN Y EJECUCIÓN
 # ============================================================================
