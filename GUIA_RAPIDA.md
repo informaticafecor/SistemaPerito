@@ -21,6 +21,8 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
+python app.py
+
 Verás `(venv)` al inicio de tu línea de comandos. ✅
 
 ### 2️⃣ Instalar Dependencias
