@@ -3,14 +3,11 @@ import sqlite3
 conn = sqlite3.connect('database.db')
 cursor = conn.cursor()
 
-# Verificar permisos del usuario 10
-cursor.execute('SELECT * FROM usuarios WHERE id = 10')
-user = cursor.fetchone()
-print("Usuario:", user)
-
-# Verificar actividades del perito 6
-cursor.execute('SELECT id, perito_id FROM actividades_peritos WHERE perito_id = 6')
-acts = cursor.fetchall()
-print("Actividades:", acts)
+try:
+    cursor.execute("ALTER TABLE asignaciones ADD COLUMN denominacion TEXT")
+    conn.commit()
+    print("✅ Columna 'denominacion' agregada")
+except sqlite3.OperationalError as e:
+    print("⚠️ La columna ya existe o error:", e)
 
 conn.close()

@@ -84,6 +84,7 @@ def init_db():
             dependencia TEXT,
             tipo_perito TEXT,
             carpeta_fiscal TEXT,
+            denominacion TEXT,  -- ← VERIFICA QUE EXISTA
             observaciones TEXT,
             lugar TEXT,
             fecha_inicio TEXT NOT NULL,
@@ -1053,7 +1054,7 @@ def auditoria():
         print(f"🔍 DEBUG: Se encontraron {len(registros)} registros")
         if registros:
             print(f"🔍 DEBUG: Primer registro: {registros[0]}")
-                    
+
         # Obtener acciones únicas
         cursor.execute('SELECT DISTINCT accion FROM auditoria ORDER BY accion')
         acciones = [row['accion'] for row in cursor.fetchall()]
@@ -1642,6 +1643,7 @@ def get_asignacion(id):
             'tipo_actividad': row['tipo_actividad'],  # ← NUEVO
             'apoyos_tecnicos': row['apoyo_tecnico'],  # ← NUEVO
             'carpeta_fiscal': row['carpeta_fiscal'],
+            'denominacion': row['denominacion'],  # ← AGREGAR
             'hoja_envio_designacion': row['hoja_envio_designacion'],  # ← NUEVO
             'observaciones': row['observaciones'],
             'lugar': row['lugar'],
@@ -1662,7 +1664,7 @@ def get_asignacion(id):
 
 
 @app.route('/api/asignacion', methods=['POST'])
-@login_required  # ← AGREGAR
+@login_required
 def crear_asignacion():
     """
     Crea una nueva asignación
@@ -1693,28 +1695,29 @@ def crear_asignacion():
     cursor.execute('''
         INSERT INTO asignaciones (
             hoja_envio, expediente, dependencia, tipo_perito, tipo_actividad, apoyo_tecnico,
-            carpeta_fiscal, hoja_envio_designacion, observaciones, lugar, fecha_inicio,
+            carpeta_fiscal, denominacion, hoja_envio_designacion, observaciones, lugar, fecha_inicio,
             fecha_fin, perito_asignado, perito_id, desginacion,
             oficio_desplazamiento, estado
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
-        data.get('hoja_envio', ''),
-        data.get('expediente', ''),
-        data.get('dependencia', ''),
-        data.get('tipo_perito', ''),
-        data.get('tipo_actividad', ''),
-        data.get('apoyos_tecnicos', ''),  # ← NUEVO
-        data.get('carpeta_fiscal', ''),
-        data.get('hoja_envio_designacion', ''),
-        data.get('observaciones', ''),
-        data.get('lugar', ''),
-        data['fecha_inicio'],
-        data['fecha_fin'],
-        data.get('perito_asignado', ''),
-        data['perito_id'],
-        data.get('desginacion', ''),
-        data.get('oficio_desplazamiento', ''),
-        'Pendiente'
+        data.get('hoja_envio', ''),           # 1
+        data.get('expediente', ''),           # 2
+        data.get('dependencia', ''),          # 3
+        data.get('tipo_perito', ''),          # 4
+        data.get('tipo_actividad', ''),       # 5
+        data.get('apoyos_tecnicos', ''),      # 6
+        data.get('carpeta_fiscal', ''),       # 7
+        data.get('denominacion', ''),         # 8 ← YA LO TIENES
+        data.get('hoja_envio_designacion', ''), # 9
+        data.get('observaciones', ''),        # 10
+        data.get('lugar', ''),                # 11
+        data['fecha_inicio'],                 # 12
+        data['fecha_fin'],                    # 13
+        data.get('perito_asignado', ''),      # 14
+        data['perito_id'],                    # 15
+        data.get('desginacion', ''),          # 16
+        data.get('oficio_desplazamiento', ''), # 17
+        'Pendiente'                           # 18 ← ESTADO (ESTE ES EL QUE FALTABA)
     ))
     
     asignacion_id = cursor.lastrowid
@@ -1723,8 +1726,8 @@ def crear_asignacion():
     
     # Registrar en historial
     registrar_historial(asignacion_id, 'Creado', 'Asignación creada exitosamente')
-
-    # PARA AUDITORIA --------------------------------------
+    
+    # Registrar en auditoría
     registrar_auditoria(
         session['usuario_id'],
         session.get('nombre_completo'),
@@ -1739,6 +1742,7 @@ def crear_asignacion():
         'id': asignacion_id,
         'message': 'Asignación creada exitosamente'
     }), 201
+
 
 @app.route('/api/asignacion/<int:id>', methods=['PUT'])
 @login_required  # ← AGREGAR
@@ -1772,7 +1776,7 @@ def actualizar_asignacion(id):
     
     campos_permitidos = [
         'hoja_envio', 'expediente', 'dependencia', 'tipo_perito', 'tipo_actividad', 'apoyo_tecnico',
-        'carpeta_fiscal', 'hoja_envio_designacion', 'observaciones', 'lugar', 'fecha_inicio',
+        'carpeta_fiscal', 'hoja_envio_designacion','denominacion', 'observaciones', 'lugar', 'fecha_inicio',
         'fecha_fin', 'perito_asignado', 'perito_id', 'desginacion',
         'oficio_desplazamiento', 'estado'
     ]
@@ -3366,6 +3370,267 @@ def eliminar_vacacion(id):
         'message': 'Vacaciones eliminadas correctamente'
     })
 
+@app.route('/api/asignacion/<int:id>/imprimir-pdf')
+@login_required
+def imprimir_pdf_asignacion(id):
+    """
+    Genera un PDF con el detalle completo de una asignación
+    """
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from io import BytesIO
+    
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Obtener datos de la asignación
+    cursor.execute('''
+        SELECT a.*, p.nombre_completo as perito_nombre
+        FROM asignaciones a
+        LEFT JOIN peritos p ON a.perito_id = p.id
+        WHERE a.id = ?
+    ''', (id,))
+    
+    asignacion = cursor.fetchone()
+    
+    if not asignacion:
+        conn.close()
+        return jsonify({'error': 'Asignación no encontrada'}), 404
+    
+    # Verificar permisos
+    if session.get('rol') != 'admin' and asignacion['perito_id'] != session.get('perito_id'):
+        conn.close()
+        return jsonify({'error': 'No autorizado'}), 403
+    
+    # Obtener archivos adjuntos
+    cursor.execute('''
+        SELECT nombre_original, tamano, fecha_subida, usuario_nombre
+        FROM archivos_asignaciones
+        WHERE asignacion_id = ?
+        ORDER BY fecha_subida DESC
+    ''', (id,))
+    
+    archivos = cursor.fetchall()
+    conn.close()
+    
+    # Crear PDF
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    
+    # Estilos
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor=colors.HexColor('#1e40af'),
+        spaceAfter=20,
+        alignment=TA_CENTER
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=colors.HexColor('#1e40af'),
+        spaceAfter=10,
+        spaceBefore=15
+    )
+    
+    normal_style = styles['Normal']
+    
+    # Contenido
+    story = []
+    
+    # Logo (si existe)
+    try:
+        logo_path = 'static/imagenes/logompo.png'
+        logo = Image(logo_path, width=1*inch, height=1*inch)
+        story.append(logo)
+        story.append(Spacer(1, 0.2*inch))
+    except:
+        pass
+    
+    # Título
+    story.append(Paragraph("DETALLE DE ASIGNACIÓN", title_style))
+    story.append(Paragraph(f"ID: #{asignacion['id']}", normal_style))
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Información General
+    story.append(Paragraph("INFORMACIÓN GENERAL", heading_style))
+    
+    data_general = [
+        ['Hoja de Envío:', asignacion['hoja_envio'] or '-'],
+        ['Expediente:', asignacion['expediente'] or '-'],
+        ['Dependencia:', asignacion['dependencia'] or '-'],
+        ['Carpeta Fiscal:', asignacion['carpeta_fiscal'] or '-'],
+        ['Denominación:', asignacion['denominacion'] or '-'],
+        ['Tipo de Perito:', asignacion['tipo_perito'] or '-'],
+        ['Tipo de Actividad:', asignacion['tipo_actividad'] or '-'],
+    ]
+    
+    # Apoyo técnico
+    apoyo = asignacion['apoyos_tecnicos'] or asignacion['apoyo_tecnico'] or '-'
+    try:
+        apoyos_list = json.loads(apoyo)
+        apoyo = ', '.join(apoyos_list)
+    except:
+        pass
+    data_general.append(['Apoyo Técnico:', apoyo])
+    
+    table_general = Table(data_general, colWidths=[2.5*inch, 4*inch])
+    table_general.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e5e7eb')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+    
+    story.append(table_general)
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Perito Asignado
+    story.append(Paragraph("PERITO ASIGNADO", heading_style))
+    data_perito = [
+        ['Nombre:', asignacion['perito_nombre'] or '-'],
+    ]
+    
+    table_perito = Table(data_perito, colWidths=[2.5*inch, 4*inch])
+    table_perito.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e5e7eb')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+    
+    story.append(table_perito)
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Fechas y Ubicación
+    story.append(Paragraph("FECHAS Y UBICACIÓN", heading_style))
+    data_fechas = [
+        ['Fecha Inicio:', asignacion['fecha_inicio'] or '-'],
+        ['Fecha Fin:', asignacion['fecha_fin'] or '-'],
+        ['Lugar:', asignacion['lugar'] or '-'],
+    ]
+    
+    table_fechas = Table(data_fechas, colWidths=[2.5*inch, 4*inch])
+    table_fechas.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e5e7eb')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+    
+    story.append(table_fechas)
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Documentos Oficiales
+    story.append(Paragraph("DOCUMENTOS OFICIALES", heading_style))
+    data_docs = [
+        ['Hoja Envío Designación:', asignacion['hoja_envio_designacion'] or '-'],
+        ['Designación:', asignacion['desginacion'] or '-'],
+        ['Oficio Desplazamiento:', asignacion['oficio_desplazamiento'] or '-'],
+    ]
+    
+    table_docs = Table(data_docs, colWidths=[2.5*inch, 4*inch])
+    table_docs.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e5e7eb')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+    
+    story.append(table_docs)
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Observaciones
+    if asignacion['observaciones']:
+        story.append(Paragraph("OBSERVACIONES", heading_style))
+        story.append(Paragraph(asignacion['observaciones'], normal_style))
+        story.append(Spacer(1, 0.3*inch))
+    
+    # Estado
+    story.append(Paragraph("ESTADO", heading_style))
+    story.append(Paragraph(f"<b>{asignacion['estado']}</b>", normal_style))
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Archivos Adjuntos
+    if archivos:
+        story.append(Paragraph("ARCHIVOS ADJUNTOS", heading_style))
+        
+        data_archivos = [['Nombre', 'Tamaño', 'Fecha', 'Subido por']]
+        for archivo in archivos:
+            tamano_mb = f"{(archivo['tamano'] / 1024 / 1024):.2f} MB"
+            data_archivos.append([
+                archivo['nombre_original'],
+                tamano_mb,
+                archivo['fecha_subida'],
+                archivo['usuario_nombre'] or '-'
+            ])
+        
+        table_archivos = Table(data_archivos, colWidths=[2.5*inch, 1*inch, 1.5*inch, 1.5*inch])
+        table_archivos.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ]))
+        
+        story.append(table_archivos)
+    
+    # Generar PDF
+    doc.build(story)
+    buffer.seek(0)
+    
+    # Registrar auditoría
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'IMPRIMIR_PDF',
+        'ASIGNACIONES',
+        f"PDF generado para asignación ID {id}",
+        id
+    )
+    
+    return send_file(
+        buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f'asignacion_{id}_detalle.pdf'
+    )
+
+
+
 # ============================================================================
 # #TODDO BIEN HASTA AQUI
 # ============================================================================
@@ -3380,16 +3645,16 @@ if __name__ == '__main__':
     print("=" * 60)
     print("🚀 SISTEMA PERITO - Iniciado")
     print("=" * 60)
-    print("📍 URL: http://127.0.0.1:5000")
-    print("📊 Dashboard: http://127.0.0.1:5000")
-    print("➕ Nueva Asignación: http://127.0.0.1:5000/nuevo")
-    print("🔍 Búsqueda: http://127.0.0.1:5000/buscar")
-    print("📅 Calendario: http://127.0.0.1:5000/calendario")
-    print("👥 Peritos: http://127.0.0.1:5000/peritos")
-    print("📈 Reportes: http://127.0.0.1:5000/reportes")
+    print("📍 URL: http://127.0.0.1:4300")
+    print("📊 Dashboard: http://127.0.0.1:4300")
+    print("➕ Nueva Asignación: http://127.0.0.1:4300/nuevo")
+    print("🔍 Búsqueda: http://127.0.0.1:4300/buscar")
+    print("📅 Calendario: http://127.0.0.1:4300/calendario")
+    print("👥 Peritos: http://127.0.0.1:4300/peritos")
+    print("📈 Reportes: http://127.0.0.1:4300/reportes")
     print("=" * 60)
     print("💡 Presiona CTRL+C para detener el servidor")
     print("=" * 60)
     
     # Ejecutar aplicación en modo desarrollo
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    app.run(host="0.0.0.0", port=4300, debug=True)

@@ -183,6 +183,20 @@
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                                placeholder="Ej: 06-2025">
                     </div>
+                    <!-- ⬇️ ADenominación ⬇️ -->
+                    <div>
+                        <label for="denominacion" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Denominación <span class="text-gray-400 text-xs">(Opcional)</span>
+                        </label>
+                        <input type="text" 
+                            id="denominacion" 
+                            name="denominacion"
+                            placeholder="Ej: Homicidio calificado"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <!-- ⬆️ HASTA AQUÍ ⬆️ -->
+
+                    
                     <!-- Hoja de Envío de Designación -->
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
@@ -835,6 +849,7 @@
                 tipo_actividad: document.getElementById('tipo_actividad').value,  // ← NUEVO
                 apoyos_tecnicos: document.getElementById('apoyos_tecnicos_hidden').value,  // ← NUEVO
                 carpeta_fiscal: document.getElementById('carpeta_fiscal').value,
+                denominacion: document.getElementById('denominacion').value,
                 hoja_envio_designacion: document.getElementById('hoja_envio_designacion').value,
                 observaciones: document.getElementById('observaciones').value,
                 lugar: document.getElementById('lugar').value,
