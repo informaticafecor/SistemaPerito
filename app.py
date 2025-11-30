@@ -98,6 +98,27 @@ def init_db():
             FOREIGN KEY (perito_id) REFERENCES peritos (id)
         )
     ''')
+
+    # ⬇️ AGREGAR ESTA TABLA ⬇️
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS archivos_asignaciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            asignacion_id INTEGER NOT NULL,
+            nombre_original TEXT NOT NULL,
+            nombre_guardado TEXT NOT NULL,
+            tamano INTEGER,
+            extension TEXT,
+            fecha_subida TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            FOREIGN KEY (asignacion_id) REFERENCES asignaciones(id),
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        )
+    ''')
+    print("✅ Tabla 'archivos_asignaciones' verificada/creada")
+    # ⬆️ HASTA AQUÍ ⬆️
+
+
     
     # Tabla de historial para auditoría
     cursor.execute('''
@@ -230,6 +251,9 @@ def init_db():
         )
     ''')
     print("✅ Tabla 'actividades_peritos' verificada/creada")
+
+
+
 
 
     # ============================================
@@ -379,6 +403,22 @@ def admin_required(f):
         if 'usuario_id' not in session:
             return redirect(url_for('login'))
         if session.get('rol') != 'admin':
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def invitado_allowed(f):
+    """
+    Decorador para rutas accesibles por admin, perito e invitado
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'usuario_id' not in session:
+            return redirect(url_for('login'))
+        # Permitir admin, perito e invitado
+        if session.get('rol') not in ['admin', 'perito', 'invitado']:
+            flash('No tienes permisos para acceder a esta página', 'error')
             return redirect(url_for('index'))
         return f(*args, **kwargs)
     return decorated_function
@@ -1165,7 +1205,7 @@ def exportar_auditoria():
 # NUEVO CODIGO CAMBIADO A ROLES
 
 @app.route('/')
-@login_required
+@invitado_allowed
 def index():
     """
     Página principal - Dashboard con estadísticas generales y paginación
@@ -1185,18 +1225,18 @@ def index():
     # Determinar si filtrar por perito
     perito_id = session.get('perito_id')
     es_admin = session.get('rol') == 'admin'
+    es_invitado = session.get('rol') == 'invitado'  # ← AGREGAR
     
     # Obtener info del perito si es usuario perito
     tipo_perito = None
-    if perito_id and not es_admin:
+    if perito_id and not es_admin and not es_invitado:  # ← MODIFICAR
         cursor.execute('SELECT tipo FROM peritos WHERE id = ?', (perito_id,))
         result = cursor.fetchone()
         if result:
             tipo_perito = result['tipo']
     
     # ==================== ESTADÍSTICAS ====================
-    if es_admin:
-        # Admin ve todo
+    if es_admin or es_invitado:  # ← ADMIN E INVITADO VEN TODO
         cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado != "Cancelado"')
         total_asignaciones = cursor.fetchone()[0]
         
@@ -1211,8 +1251,7 @@ def index():
         
         cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado = "Cancelado"')
         cancelados = cursor.fetchone()[0]
-    else:
-        # Perito ve solo sus asignaciones
+    else:  # PERITO VE SOLO LO SUYO
         cursor.execute('SELECT COUNT(*) FROM asignaciones WHERE estado != "Cancelado" AND perito_id = ?', (perito_id,))
         total_asignaciones = cursor.fetchone()[0]
         
@@ -1231,7 +1270,7 @@ def index():
     # ==================== ASIGNACIONES ====================
     offset = (pagina - 1) * por_pagina
     
-    if es_admin:
+    if es_admin or es_invitado:  # ← ADMIN E INVITADO VEN TODO
         cursor.execute('''
             SELECT 
                 a.id, a.hoja_envio, a.expediente, a.dependencia, 
@@ -1245,7 +1284,7 @@ def index():
             ORDER BY a.fecha_registro DESC
             LIMIT ? OFFSET ?
         ''', (por_pagina, offset))
-    else:
+    else:  # PERITO VE SOLO LO SUYO
         cursor.execute('''
             SELECT 
                 a.id, a.hoja_envio, a.expediente, a.dependencia, 
@@ -1293,8 +1332,8 @@ def index():
                          por_pagina=por_pagina,
                          es_admin=es_admin,
                          tipo_perito=tipo_perito)
-
-
+#CAMBIOS ---
+    
 
 @app.route('/nuevo')
 @login_required  # ← AGREGAR
@@ -1327,7 +1366,7 @@ def nuevo():
     return render_template('core/nuevo.html', peritos=peritos_por_tipo)
 
 @app.route('/buscar')
-@login_required
+@invitado_allowed  # ← CAMBIAR
 def buscar():
     """
     Página de búsqueda de asignaciones
@@ -1363,7 +1402,7 @@ def buscar():
 #    return render_template('core/calendario.html')
 
 @app.route('/calendario')
-@login_required
+@invitado_allowed  # ← CAMBIAR
 def calendario():
     """
     Vista de calendario con asignaciones
@@ -2368,6 +2407,7 @@ def subir_archivos(id):
     cursor.execute('SELECT archivos_adjuntos, perito_id FROM asignaciones WHERE id = ?', (id,))
     resultado = cursor.fetchone()
     
+    
     if not resultado:
         conn.close()
         return jsonify({'error': 'Asignación no encontrada'}), 404
@@ -2638,6 +2678,7 @@ def actividades_admin():
     conn.close()
     
     return render_template('admin/actividades.html', actividades=actividades)
+
 
 
 # ============================================
@@ -3408,14 +3449,29 @@ def imprimir_pdf_asignacion(id):
         return jsonify({'error': 'No autorizado'}), 403
     
     # Obtener archivos adjuntos
-    cursor.execute('''
-        SELECT nombre_original, tamano, fecha_subida, usuario_nombre
-        FROM archivos_asignaciones
-        WHERE asignacion_id = ?
-        ORDER BY fecha_subida DESC
-    ''', (id,))
+    archivos = []
+    archivos_json = asignacion['archivos_adjuntos']
     
-    archivos = cursor.fetchall()
+    print(f"🔍 DEBUG - Archivos JSON: {archivos_json}")  # DEBUG
+    
+    if archivos_json:
+        try:
+            archivos_list = json.loads(archivos_json)
+            print(f"🔍 DEBUG - Archivos parseados: {archivos_list}")  # DEBUG
+            
+            for archivo in archivos_list:
+                archivos.append({
+                    'nombre_original': archivo.get('nombre_original', 'N/A'),
+                    'tamano': archivo.get('tamano', 0),
+                    'fecha_subida': archivo.get('fecha_subida', 'N/A'),
+                    'usuario_nombre': archivo.get('usuario_nombre', '-')
+                })
+        except Exception as e:
+            print(f"❌ Error al parsear archivos: {e}")
+            archivos = []
+    
+    print(f"🔍 DEBUG - Total archivos: {len(archivos)}")  # DEBUG
+    
     conn.close()
     
     # Crear PDF
@@ -3581,19 +3637,22 @@ def imprimir_pdf_asignacion(id):
     story.append(Spacer(1, 0.3*inch))
     
     # Archivos Adjuntos
+    # Archivos Adjuntos
     if archivos:
         story.append(Paragraph("ARCHIVOS ADJUNTOS", heading_style))
         
         data_archivos = [['Nombre', 'Tamaño', 'Fecha', 'Subido por']]
         for archivo in archivos:
-            tamano_mb = f"{(archivo['tamano'] / 1024 / 1024):.2f} MB"
+            tamano = archivo.get('tamano', 0)
+            tamano_mb = f"{(tamano / 1024 / 1024):.2f} MB" if tamano > 0 else 'N/A'
             data_archivos.append([
-                archivo['nombre_original'],
+                archivo.get('nombre_original', 'N/A'),
                 tamano_mb,
-                archivo['fecha_subida'],
-                archivo['usuario_nombre'] or '-'
+                archivo.get('fecha_subida', 'N/A'),
+                archivo.get('usuario_nombre', '-')
             ])
         
+
         table_archivos = Table(data_archivos, colWidths=[2.5*inch, 1*inch, 1.5*inch, 1.5*inch])
         table_archivos.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
@@ -3630,6 +3689,261 @@ def imprimir_pdf_asignacion(id):
     )
 
 
+@app.route('/api/calendario/imprimir-pdf')
+@login_required
+def imprimir_calendario_pdf():
+    """
+    Genera PDF del calendario en UNA SOLA PÁGINA con texto justificado
+    """
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from io import BytesIO
+    from datetime import datetime
+    import calendar
+    
+    mes = int(request.args.get('mes', datetime.now().month))
+    anio = int(request.args.get('anio', datetime.now().year))
+    
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    primer_dia = f"{anio}-{mes:02d}-01"
+    ultimo_dia = f"{anio}-{mes:02d}-{calendar.monthrange(anio, mes)[1]}"
+    
+    # ← AGREGAR FILTRO DE CANCELADOS
+    if session.get('rol') == 'admin' or session.get('rol') == 'invitado':
+        cursor.execute('''
+            SELECT a.*, p.nombre_completo as perito_nombre
+            FROM asignaciones a
+            LEFT JOIN peritos p ON a.perito_id = p.id
+            WHERE fecha_inicio <= ? AND fecha_fin >= ? 
+            AND a.estado != "Cancelado"
+            ORDER BY fecha_inicio
+        ''', (ultimo_dia, primer_dia))
+    else:
+        cursor.execute('''
+            SELECT a.*, p.nombre_completo as perito_nombre
+            FROM asignaciones a
+            LEFT JOIN peritos p ON a.perito_id = p.id
+            WHERE a.perito_id = ? AND fecha_inicio <= ? AND fecha_fin >= ?
+            AND a.estado != "Cancelado"
+            ORDER BY fecha_inicio
+        ''', (session.get('perito_id'), ultimo_dia, primer_dia))
+    
+    asignaciones = cursor.fetchall()
+    
+    # Vacaciones (sin cambios)
+    if session.get('rol') == 'admin' or session.get('rol') == 'invitado':
+        cursor.execute('''
+            SELECT v.*, p.nombre_completo as perito_nombre
+            FROM vacaciones v
+            LEFT JOIN peritos p ON v.perito_id = p.id
+            WHERE fecha_inicio <= ? AND fecha_fin >= ?
+        ''', (ultimo_dia, primer_dia))
+    else:
+        cursor.execute('''
+            SELECT v.*, p.nombre_completo as perito_nombre
+            FROM vacaciones v
+            LEFT JOIN peritos p ON v.perito_id = p.id
+            WHERE v.perito_id = ? AND fecha_inicio <= ? AND fecha_fin >= ?
+        ''', (session.get('perito_id'), ultimo_dia, primer_dia))
+    
+    vacaciones = cursor.fetchall()
+    
+    # Actividades (sin cambios)
+    if session.get('rol') == 'admin' or session.get('rol') == 'invitado':
+        cursor.execute('''
+            SELECT a.*, p.nombre_completo as perito_nombre
+            FROM actividades_peritos a
+            LEFT JOIN peritos p ON a.perito_id = p.id
+            WHERE fecha_inicio <= ? AND fecha_fin >= ?
+        ''', (ultimo_dia, primer_dia))
+    else:
+        cursor.execute('''
+            SELECT a.*, p.nombre_completo as perito_nombre
+            FROM actividades_peritos a
+            LEFT JOIN peritos p ON a.perito_id = p.id
+            WHERE a.perito_id = ? AND fecha_inicio <= ? AND fecha_fin >= ?
+        ''', (session.get('perito_id'), ultimo_dia, primer_dia))
+    
+    actividades = cursor.fetchall()
+    conn.close()
+    
+    # Crear PDF
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=landscape(A4), 
+        topMargin=0.25*inch, 
+        bottomMargin=0.25*inch,
+        leftMargin=0.25*inch, 
+        rightMargin=0.25*inch
+    )
+    
+    # Estilos
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'Title',
+        fontSize=14,
+        textColor=colors.HexColor('#1e40af'),
+        spaceAfter=6,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    # ← ESTILO CON WORDWRAP
+    cell_style = ParagraphStyle(
+        'Cell',
+        fontSize=6,
+        leading=7,
+        alignment=TA_LEFT,
+        wordWrap='CJK',
+        leftIndent=0,
+        rightIndent=0
+    )
+    
+    story = []
+    
+    # Logo
+    try:
+        logo = Image('static/imagenes/logompo.png', width=0.4*inch, height=0.4*inch)
+        story.append(logo)
+        story.append(Spacer(1, 0.05*inch))
+    except:
+        pass
+    
+    # Título
+    meses_es = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+    
+    titulo = f"{meses_es[mes].upper()} {anio}"
+    if session.get('rol') != 'admin':
+        titulo += f" - {session.get('nombre_completo')}"
+    
+    story.append(Paragraph(titulo, title_style))
+    story.append(Spacer(1, 0.08*inch))
+    
+    # Calendario
+    cal = calendar.monthcalendar(anio, mes)
+    dias_semana = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
+    data = [dias_semana]
+    
+    for semana in cal:
+        fila = []
+        for dia in semana:
+            if dia == 0:
+                fila.append('')
+            else:
+                fecha = f"{anio}-{mes:02d}-{dia:02d}"
+                lineas = [f"<b><font size=8>{dia}</font></b>"]
+                
+                # Asignaciones con TODOS los datos
+                for asig in asignaciones:
+                    if asig['fecha_inicio'] <= fecha <= asig['fecha_fin']:
+                        nombre = (asig['perito_nombre'] or 'N/A')[:16]
+                        exp = (asig['expediente'] or 'S/E')[:10]
+                        dep = (asig['dependencia'] or 'S/D')[:12]
+                        
+                        lineas.append(f"<font color='#1e40af'><b>📋 {nombre}</b></font>")
+                        lineas.append(f"<font size=5>Exp: {exp}</font>")
+                        lineas.append(f"<font size=5>Dep: {dep}</font>")
+                        lineas.append("<font size=4>—</font>")
+                
+                # Actividades
+                for act in actividades:
+                    if act['fecha_inicio'] <= fecha <= act['fecha_fin']:
+                        nombre = (act['perito_nombre'] or 'N/A')[:16]
+                        tipo = (act['tipo_actividad'] or 'N/A')[:10]
+                        
+                        lineas.append(f"<font color='#7c3aed'><b>📌 {nombre}</b></font>")
+                        lineas.append(f"<font size=5>{tipo}</font>")
+                        lineas.append("<font size=4>—</font>")
+                
+                # Vacaciones
+                for vac in vacaciones:
+                    if vac['fecha_inicio'] <= fecha <= vac['fecha_fin']:
+                        nombre = (vac['perito_nombre'] or 'N/A')[:16]
+                        lineas.append(f"<font color='#16a34a'><b>🏖️ {nombre}</b></font>")
+                        lineas.append("<font size=5>VACACIONES</font>")
+                
+                # Limpiar separador final
+                if lineas[-1] == "<font size=4>—</font>":
+                    lineas.pop()
+                
+                fila.append(Paragraph("<br/>".join(lineas), cell_style))
+        
+        data.append(fila)
+    
+    # Dimensiones ajustadas
+    num_semanas = len(data) - 1
+    col_width = 1.5*inch
+    row_height_cell = 1.28*inch  # ← ALTURA FIJA para caber en una página
+    
+    row_heights = [0.22*inch] + [row_height_cell] * num_semanas
+    
+    table = Table(data, colWidths=[col_width]*7, rowHeights=row_heights)
+    
+    table.setStyle(TableStyle([
+        # Cabecera
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
+        ('TOPPADDING', (0, 0), (-1, 0), 5),
+        
+        # Celdas
+        ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 1), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 1), (-1, -1), 2),
+        ('RIGHTPADDING', (0, 1), (-1, -1), 2),
+        ('TOPPADDING', (0, 1), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 2),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        
+        # Fin de semana
+        ('BACKGROUND', (5, 1), (5, -1), colors.HexColor('#f9f9f9')),
+        ('BACKGROUND', (6, 1), (6, -1), colors.HexColor('#f9f9f9')),
+    ]))
+    
+    story.append(table)
+    story.append(Spacer(1, 0.08*inch))
+    
+    # Leyenda
+    leyenda = ParagraphStyle('Leyenda', fontSize=7, alignment=TA_CENTER)
+    story.append(Paragraph(
+        "<b>LEYENDA:</b> <font color='#1e40af'>📋 Asignación</font> | "
+        "<font color='#7c3aed'>📌 Actividad</font> | "
+        "<font color='#16a34a'>🏖️ Vacación</font>", 
+        leyenda
+    ))
+    
+    doc.build(story)
+    buffer.seek(0)
+    
+    # Auditoría
+    registrar_auditoria(
+        session['usuario_id'],
+        session.get('nombre_completo'),
+        'IMPRIMIR_CALENDARIO',
+        'CALENDARIO',
+        f"Calendario de {meses_es[mes]} {anio} impreso",
+        None
+    )
+    
+    return send_file(
+        buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f'calendario_{meses_es[mes]}_{anio}.pdf'
+    )
 
 # ============================================================================
 # #TODDO BIEN HASTA AQUI

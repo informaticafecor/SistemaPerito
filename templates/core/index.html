@@ -586,6 +586,11 @@
                             </div>
 
                             <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Denominación:</label>
+                                <p class="text-gray-800">${data.denominacion || '-'}</p>
+                            </div>                            
+
+                            <div class="col-span-2">
                                 <label class="text-sm font-semibold text-gray-600">Hoja de Envío de Designación:</label>
                                 <p class="text-gray-800">${data.hoja_envio_designacion || '-'}</p>
                             </div>
@@ -672,8 +677,13 @@
 
 
                         </div>
-                        
+
                         <div class="mt-6 flex justify-end space-x-3">
+                            <a href="/api/asignacion/${data.id}/imprimir-pdf" 
+                            target="_blank"
+                            class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                                <i class="fas fa-file-pdf mr-2"></i>Imprimir PDF
+                            </a>
                             {% if session.rol == 'admin' %}
                             <button onclick="editarAsignacion(${data.id})" 
                                     class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">

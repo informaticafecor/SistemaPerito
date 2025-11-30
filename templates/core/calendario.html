@@ -217,6 +217,12 @@
                                 class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
                             <i class="fas fa-calendar-check mr-2"></i>Hoy
                         </button>
+                        <a id="btnImprimirCalendario" 
+                        href="#" 
+                        target="_blank"
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                            <i class="fas fa-print mr-2"></i>Imprimir Calendario
+                        </a>                        
                     </div>
                 </div>
 
@@ -359,6 +365,7 @@
             inicializarSelectores();
             cargarPeritos();
             cargarCalendario();
+            actualizarLinkImprimir(); // ← AGREGAR ESTA LÍNEA
         });
 
         /**
@@ -665,6 +672,13 @@
             document.getElementById('estadisticasMes').innerHTML = html;
         }
 
+        // Actualizar link de imprimir cuando cambia el mes
+        function actualizarLinkImprimir() {
+            const btn = document.getElementById('btnImprimirCalendario');
+            if (btn) {
+                btn.href = `/api/calendario/imprimir-pdf?mes=${mesActual + 1}&anio=${anioActual}`;
+            }
+        }
 
         /**
          * Navegación de calendario
@@ -676,9 +690,11 @@
             } else {
                 mesActual--;
             }
+            
             document.getElementById('mesSelect').value = mesActual;
             document.getElementById('anioSelect').value = anioActual;
             cargarCalendario();
+            actualizarLinkImprimir(); // ← AGREGAR ESTA LÍNEA
         }
 
         function mesSiguiente() {
@@ -691,6 +707,7 @@
             document.getElementById('mesSelect').value = mesActual;
             document.getElementById('anioSelect').value = anioActual;
             cargarCalendario();
+            actualizarLinkImprimir(); // ← AGREGAR ESTA LÍNEA
         }
 
         function irHoy() {
@@ -700,8 +717,8 @@
             document.getElementById('mesSelect').value = mesActual;
             document.getElementById('anioSelect').value = anioActual;
             cargarCalendario();
+            actualizarLinkImprimir(); // ← AGREGAR ESTA LÍNEA
         }
-
         /**
          * Ver todas las asignaciones de un día específico
         */
@@ -965,6 +982,11 @@
                                 <p class="text-gray-800">${data.carpeta_fiscal || '-'}</p>
                             </div>
                             
+                            <div class="col-span-2">
+                                <label class="text-sm font-semibold text-gray-600">Denominación:</label>
+                                <p class="text-gray-800">${data.denominacion || '-'}</p>
+                            </div>      
+
                             <div class="col-span-2 bg-green-50 p-4 rounded-lg my-4">
                                 <h4 class="text-lg font-bold text-green-900 mb-2">
                                     <i class="fas fa-user-tie mr-2"></i>Perito Asignado
@@ -1035,9 +1057,16 @@
                             </div>
                         </div>
                         
+
                         <div class="mt-6 flex justify-end space-x-3">
+                            <a href="/api/asignacion/${data.id}/imprimir-pdf" 
+                            target="_blank"
+                            class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                                <i class="fas fa-file-pdf mr-2"></i>Imprimir PDF
+                            </a>
+
                             <button onclick="cerrarModalDetalle()" 
-                                    class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                                    class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
                                 <i class="fas fa-times mr-2"></i>Cerrar
                             </button>
                         </div>
@@ -1170,7 +1199,7 @@
                                     <label class="text-sm font-semibold text-gray-600">Observaciones:</label>
                                     <p class="text-gray-800 bg-gray-50 p-3 rounded-lg">${data.observaciones}</p>
                                 </div>
-                            ` : ''}
+                            ` : ''} 
                         </div>
                         
                         <div class="mt-6 flex justify-end space-x-3">
@@ -1311,6 +1340,8 @@
             };
             return badges[estado] || estado;
         }
+
+
 
         /**
          * Cerrar modales

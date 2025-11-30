@@ -1,8 +1,6 @@
-🔐 FASE 1: SISTEMA DE LOGIN
-PASO 1: Instalar dependencias necesarias
-Ejecuta en tu terminal:
-pip install flask-session bcrypt
+2. Descartar tus cambios (si NO te importan y quieres reemplazar todo con lo del servidor)
 
-e
-e
+⚠️ CUIDADO, esto borrará tus cambios locales.
 
+git reset --hard
+git pull
