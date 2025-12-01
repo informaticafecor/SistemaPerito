@@ -1400,6 +1400,8 @@ def buscar():
                           nombre_perito=nombre_perito,
                           perito_id=perito_id)
 
+
+
 #@app.route('/calendario')
 #@login_required  # ← AGREGAR
 #def calendario():
@@ -1491,6 +1493,8 @@ def get_asignaciones():
     # Determinar si filtrar por perito
     perito_id = session.get('perito_id')
     es_admin = session.get('rol') == 'admin'
+    es_invitado = session.get('rol') == 'invitado'
+    
     
     # ==================== OBTENER ASIGNACIONES ====================
     query = '''
@@ -1500,9 +1504,9 @@ def get_asignaciones():
         WHERE a.estado != 'Cancelado'
     '''
     params = []
-    
+
     # Filtro por rol (perito solo ve las suyas)
-    if not es_admin and perito_id:
+    if not es_admin and not es_invitado and perito_id:  # ← MODIFICAR
         query += ' AND a.perito_id = ?'
         params.append(perito_id)
     
@@ -1512,7 +1516,8 @@ def get_asignaciones():
         params.append(request.args.get('estado'))
     
     # Filtro por perito (para admin)
-    if request.args.get('perito_id') and es_admin:
+    # Filtro por perito (para admin e invitado)  ← MODIFICAR COMENTARIO
+    if request.args.get('perito_id') and (es_admin or es_invitado):  # ← MODIFICAR
         query += ' AND a.perito_id = ?'
         params.append(request.args.get('perito_id'))
     
@@ -2635,11 +2640,15 @@ def descargar_archivo(filename):
 # PARA ADNINB AACTIVIDADES
 
 @app.route('/actividades-admin')
-@admin_required
+@invitado_allowed  # ← NUEVO: permite admin e invitado
 def actividades_admin():
     """
-    Página para que admin vea todas las actividades de peritos
+    Página para que admin e invitado vean todas las actividades de peritos
     """
+    # Verificar que sea admin o invitado
+    if session.get('rol') not in ['admin', 'invitado']:
+        return redirect(url_for('index'))
+    
     conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -2685,8 +2694,6 @@ def actividades_admin():
     conn.close()
     
     return render_template('admin/actividades.html', actividades=actividades)
-
-
 
 # ============================================
 # ACTIVIDADES DE PERITOS
@@ -3721,11 +3728,11 @@ def imprimir_pdf_asignacion(id):
 @login_required
 def imprimir_calendario_pdf():
     """
-    Genera PDF del calendario en UNA SOLA PÁGINA con texto justificado
+    Genera PDF del calendario en UNA SOLA PÁGINA
     """
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepTogether
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER, TA_LEFT
@@ -3743,7 +3750,7 @@ def imprimir_calendario_pdf():
     primer_dia = f"{anio}-{mes:02d}-01"
     ultimo_dia = f"{anio}-{mes:02d}-{calendar.monthrange(anio, mes)[1]}"
     
-    # ← AGREGAR FILTRO DE CANCELADOS
+    # Obtener datos (con filtro de cancelados)
     if session.get('rol') == 'admin' or session.get('rol') == 'invitado':
         cursor.execute('''
             SELECT a.*, p.nombre_completo as perito_nombre
@@ -3765,7 +3772,6 @@ def imprimir_calendario_pdf():
     
     asignaciones = cursor.fetchall()
     
-    # Vacaciones (sin cambios)
     if session.get('rol') == 'admin' or session.get('rol') == 'invitado':
         cursor.execute('''
             SELECT v.*, p.nombre_completo as perito_nombre
@@ -3783,7 +3789,6 @@ def imprimir_calendario_pdf():
     
     vacaciones = cursor.fetchall()
     
-    # Actividades (sin cambios)
     if session.get('rol') == 'admin' or session.get('rol') == 'invitado':
         cursor.execute('''
             SELECT a.*, p.nombre_completo as perito_nombre
@@ -3807,28 +3812,28 @@ def imprimir_calendario_pdf():
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=landscape(A4), 
-        topMargin=0.25*inch, 
-        bottomMargin=0.25*inch,
-        leftMargin=0.25*inch, 
-        rightMargin=0.25*inch
+        topMargin=0.2*inch, 
+        bottomMargin=0.2*inch,
+        leftMargin=0.2*inch, 
+        rightMargin=0.2*inch
     )
     
     # Estilos
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         'Title',
-        fontSize=14,
+        fontSize=13,
         textColor=colors.HexColor('#1e40af'),
-        spaceAfter=6,
+        spaceAfter=4,
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
     )
     
-    # ← ESTILO CON WORDWRAP
+    # Estilo con wrap para nombres completos
     cell_style = ParagraphStyle(
         'Cell',
         fontSize=6,
-        leading=7,
+        leading=6.5,
         alignment=TA_LEFT,
         wordWrap='CJK',
         leftIndent=0,
@@ -3839,9 +3844,9 @@ def imprimir_calendario_pdf():
     
     # Logo
     try:
-        logo = Image('static/imagenes/logompo.png', width=0.4*inch, height=0.4*inch)
+        logo = Image('static/imagenes/logompo.png', width=0.35*inch, height=0.35*inch)
         story.append(logo)
-        story.append(Spacer(1, 0.05*inch))
+        story.append(Spacer(1, 0.03*inch))
     except:
         pass
     
@@ -3854,7 +3859,7 @@ def imprimir_calendario_pdf():
         titulo += f" - {session.get('nombre_completo')}"
     
     story.append(Paragraph(titulo, title_style))
-    story.append(Spacer(1, 0.08*inch))
+    story.append(Spacer(1, 0.05*inch))
     
     # Calendario
     cal = calendar.monthcalendar(anio, mes)
@@ -3870,37 +3875,37 @@ def imprimir_calendario_pdf():
                 fecha = f"{anio}-{mes:02d}-{dia:02d}"
                 lineas = [f"<b><font size=8>{dia}</font></b>"]
                 
-                # Asignaciones con TODOS los datos
+                # Asignaciones - SIN CORTAR TEXTO
                 for asig in asignaciones:
                     if asig['fecha_inicio'] <= fecha <= asig['fecha_fin']:
-                        nombre = (asig['perito_nombre'] or 'N/A')[:16]
-                        exp = (asig['expediente'] or 'S/E')[:10]
-                        dep = (asig['dependencia'] or 'S/D')[:12]
+                        nombre = asig['perito_nombre'] or 'N/A'  # ← SIN [:16]
+                        exp = asig['expediente'] or 'S/E'
+                        dep = asig['dependencia'] or 'S/D'
                         
                         lineas.append(f"<font color='#1e40af'><b>📋 {nombre}</b></font>")
                         lineas.append(f"<font size=5>Exp: {exp}</font>")
                         lineas.append(f"<font size=5>Dep: {dep}</font>")
                         lineas.append("<font size=4>—</font>")
                 
-                # Actividades
+                # Actividades - SIN CORTAR TEXTO
                 for act in actividades:
                     if act['fecha_inicio'] <= fecha <= act['fecha_fin']:
-                        nombre = (act['perito_nombre'] or 'N/A')[:16]
-                        tipo = (act['tipo_actividad'] or 'N/A')[:10]
+                        nombre = act['perito_nombre'] or 'N/A'  # ← SIN [:16]
+                        tipo = act['tipo_actividad'] or 'N/A'  # ← SIN [:10]
                         
                         lineas.append(f"<font color='#7c3aed'><b>📌 {nombre}</b></font>")
                         lineas.append(f"<font size=5>{tipo}</font>")
                         lineas.append("<font size=4>—</font>")
                 
-                # Vacaciones
+                # Vacaciones - SIN CORTAR TEXTO
                 for vac in vacaciones:
                     if vac['fecha_inicio'] <= fecha <= vac['fecha_fin']:
-                        nombre = (vac['perito_nombre'] or 'N/A')[:16]
+                        nombre = vac['perito_nombre'] or 'N/A'  # ← SIN [:16]
                         lineas.append(f"<font color='#16a34a'><b>🏖️ {nombre}</b></font>")
                         lineas.append("<font size=5>VACACIONES</font>")
                 
                 # Limpiar separador final
-                if lineas[-1] == "<font size=4>—</font>":
+                if lineas and lineas[-1] == "<font size=4>—</font>":
                     lineas.pop()
                 
                 fila.append(Paragraph("<br/>".join(lineas), cell_style))
@@ -3910,23 +3915,28 @@ def imprimir_calendario_pdf():
     # Dimensiones ajustadas
     num_semanas = len(data) - 1
     col_width = 1.5*inch
-    row_height_cell = 1.28*inch  # ← ALTURA FIJA para caber en una página
     
-    row_heights = [0.22*inch] + [row_height_cell] * num_semanas
+    # Ajustar altura según número de semanas
+    if num_semanas == 5:
+        row_height_cell = 1.32*inch
+    elif num_semanas == 6:
+        row_height_cell = 1.18*inch
+    else:  # 4 semanas
+        row_height_cell = 1.65*inch
+    
+    row_heights = [0.2*inch] + [row_height_cell] * num_semanas
     
     table = Table(data, colWidths=[col_width]*7, rowHeights=row_heights)
     
     table.setStyle(TableStyle([
-        # Cabecera
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
-        ('TOPPADDING', (0, 0), (-1, 0), 5),
+        ('FONTSIZE', (0, 0), (-1, 0), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+        ('TOPPADDING', (0, 0), (-1, 0), 4),
         
-        # Celdas
         ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 1), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 1), (-1, -1), 2),
@@ -3936,16 +3946,16 @@ def imprimir_calendario_pdf():
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('BACKGROUND', (0, 1), (-1, -1), colors.white),
         
-        # Fin de semana
         ('BACKGROUND', (5, 1), (5, -1), colors.HexColor('#f9f9f9')),
         ('BACKGROUND', (6, 1), (6, -1), colors.HexColor('#f9f9f9')),
     ]))
     
+    # ← USAR KeepTogether PARA MANTENER TODO EN UNA PÁGINA
     story.append(table)
-    story.append(Spacer(1, 0.08*inch))
-    
+    story.append(Spacer(1, 0.05*inch))
+
     # Leyenda
-    leyenda = ParagraphStyle('Leyenda', fontSize=7, alignment=TA_CENTER)
+    leyenda = ParagraphStyle('Leyenda', fontSize=6, alignment=TA_CENTER)
     story.append(Paragraph(
         "<b>LEYENDA:</b> <font color='#1e40af'>📋 Asignación</font> | "
         "<font color='#7c3aed'>📌 Actividad</font> | "
@@ -3956,7 +3966,6 @@ def imprimir_calendario_pdf():
     doc.build(story)
     buffer.seek(0)
     
-    # Auditoría
     registrar_auditoria(
         session['usuario_id'],
         session.get('nombre_completo'),

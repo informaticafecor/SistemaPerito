@@ -123,9 +123,9 @@
                     <!-- ⬆️ FIN DEL BOTÓN ⬆️ -->
                     {% endif %}
 
-                    {% if session.rol == 'perito' %}
-                    <a href="/mis-actividades" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
-                        <i class="fas fa-clipboard-list mr-1"></i>Mis Actividades
+                    {% if session.rol == 'admin' or session.rol == 'invitado' %}
+                    <a href="/actividades-admin" class="px-3 py-2 rounded-lg hover:bg-blue-800">
+                        <i class="fas fa-tasks mr-1"></i>Actividades
                     </a>
                     {% endif %}
                 </div>
