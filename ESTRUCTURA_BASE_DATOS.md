@@ -73,7 +73,6 @@ Almacena la información de todos los peritos del sistema.
 -- Contables (3)
 9. ROSARIO CORDERO BORJA
 10. ANGELA ROXANA CALDERON BUSTAMANTE
-11. YESENIA ELIZABETH CHAVEZ VALERO
 ```
 
 ### Ejemplo de Registro:

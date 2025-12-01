@@ -29,6 +29,17 @@ from werkzeug.utils import secure_filename
 
 # Inicializar aplicación Flask
 app = Flask(__name__)
+
+def activar_wal():
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL;")
+    conn.commit()
+    conn.close()
+
+activar_wal()
+
+
 app.config['JSON_AS_ASCII'] = False  # Para caracteres especiales en español
 
 # Configuración para archivos
@@ -151,8 +162,7 @@ def init_db():
             ('SANDRA LISBET IBARRA APAZA', 'Antropólogo'),
             # Peritos Contables
             ('ROSARIO CORDERO BORJA', 'Contable'),
-            ('ANGELA ROXANA CALDERON BUSTAMANTE', 'Contable'),
-            ('YESENIA ELIZABETH CHAVEZ VALERO', 'Contable')
+            ('ANGELA ROXANA CALDERON BUSTAMANTE', 'Contable')
         ]
         
         cursor.executemany(
@@ -251,9 +261,6 @@ def init_db():
         )
     ''')
     print("✅ Tabla 'actividades_peritos' verificada/creada")
-
-
-
 
 
     # ============================================
@@ -3638,31 +3645,52 @@ def imprimir_pdf_asignacion(id):
     
     # Archivos Adjuntos
     # Archivos Adjuntos
+    # Archivos Adjuntos con texto justificado y wrapping
     if archivos:
         story.append(Paragraph("ARCHIVOS ADJUNTOS", heading_style))
+        
+        # Estilo específico para nombres de archivos largos
+        archivo_style = ParagraphStyle(
+            'ArchivoStyle',
+            parent=styles['Normal'],
+            fontSize=8,
+            alignment=TA_LEFT,
+            wordWrap='CJK',
+            leading=9
+        )
         
         data_archivos = [['Nombre', 'Tamaño', 'Fecha', 'Subido por']]
         for archivo in archivos:
             tamano = archivo.get('tamano', 0)
             tamano_mb = f"{(tamano / 1024 / 1024):.2f} MB" if tamano > 0 else 'N/A'
+            
+            # Usar Paragraph para nombres largos con wrap
+            nombre_para = Paragraph(archivo.get('nombre_original', 'N/A'), archivo_style)
+            usuario_para = Paragraph(archivo.get('usuario_nombre', '-'), archivo_style)
+            fecha_para = Paragraph(archivo.get('fecha_subida', 'N/A'), archivo_style)
+            
             data_archivos.append([
-                archivo.get('nombre_original', 'N/A'),
+                nombre_para,
                 tamano_mb,
-                archivo.get('fecha_subida', 'N/A'),
-                archivo.get('usuario_nombre', '-')
+                fecha_para,
+                usuario_para
             ])
         
-
-        table_archivos = Table(data_archivos, colWidths=[2.5*inch, 1*inch, 1.5*inch, 1.5*inch])
+        table_archivos = Table(data_archivos, colWidths=[2.2*inch, 0.8*inch, 1.3*inch, 2.2*inch])
         table_archivos.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),  # ← CAMBIAR A LEFT
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),  # ← TOP para que wrap funcione
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ]))
         
         story.append(table_archivos)
