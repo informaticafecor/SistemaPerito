@@ -36,7 +36,6 @@
 <body class="bg-gray-50">
     
     <!-- Navegación Principal -->
-    <!-- Navegación Principal -->
     <nav class="bg-blue-900 text-white shadow-lg">
         <div class="container mx-auto px-4">
             <div class="flex justify-between items-center py-3">
@@ -44,7 +43,7 @@
                 <div class="flex items-center space-x-3">
                     <img src="{{ url_for('static', filename='imagenes/logompo.png') }}" alt="Logo" class="w-10 h-10 object-contain">
                     <div class="hidden md:block">
-                        <h1 class="text-lx font-bold">Sistema de Monitoreo y Gestión</h1>
+                        <h1 class="text-lx font-bold">Sistema de Monitorio y Gestión</h1>
                         <p class="text-xs text-blue-200">Unidad de Peritaje - FECOR</p>
                     </div>
                 </div>
@@ -78,16 +77,18 @@
                     <a href="/usuarios" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-users-cog mr-1"></i>Usuarios
                     </a>
-                    <!-- ⬇️ AGREGAR ESTE BOTÓN AQUÍ ⬇️ -->
-                    <a href="/actividades-admin" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
-                        <i class="fas fa-clipboard-list mr-1"></i>Actividades
-                    </a>
-                    <!-- ⬆️ FIN DEL BOTÓN ⬆️ -->
+
                     <a href="/auditoria" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-history mr-1"></i>Auditoría
-                    </a>  
-
+                    </a>                      <!-- ⬆️ FIN DEL BOTÓN ⬆️ -->
                     {% endif %}
+
+                    <!-- ⬇️ AGREGAR ESTE BOTÓN AQUÍ ⬇️ -->
+                    {% if session.rol == 'admin' or session.rol == 'invitado' %}
+                    <a href="/actividades-admin" class="px-3 py-2 rounded-lg hover:bg-blue-800">
+                        <i class="fas fa-tasks mr-1"></i>Actividades
+                    </a>
+                    {% endif %}                   
 
                     {% if session.rol == 'perito' %}
                     <a href="/mis-actividades" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">

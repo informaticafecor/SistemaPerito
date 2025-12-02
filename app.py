@@ -1504,9 +1504,8 @@ def get_asignaciones():
         WHERE a.estado != 'Cancelado'
     '''
     params = []
-
     # Filtro por rol (perito solo ve las suyas)
-    if not es_admin and not es_invitado and perito_id:  # ← MODIFICAR
+    if not es_admin and perito_id:
         query += ' AND a.perito_id = ?'
         params.append(perito_id)
     
@@ -1516,8 +1515,7 @@ def get_asignaciones():
         params.append(request.args.get('estado'))
     
     # Filtro por perito (para admin)
-    # Filtro por perito (para admin e invitado)  ← MODIFICAR COMENTARIO
-    if request.args.get('perito_id') and (es_admin or es_invitado):  # ← MODIFICAR
+    if request.args.get('perito_id') and es_admin:
         query += ' AND a.perito_id = ?'
         params.append(request.args.get('perito_id'))
     
