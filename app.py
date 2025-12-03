@@ -158,7 +158,7 @@ def init_db():
             ('EDILBERTO EDISON ZAVALA CAMPOS', 'Acústico'),
             ('WILBER PAUL ESPINOZA LAUREANO', 'Acústico'),
             # Peritos Antropólogos
-            ('BRIAN BARRY SOTO ALCAZAR', 'Antropólogo'),
+            ('BARRY SOTO ALCAZAR', 'Antropólogo'),
             ('SANDRA LISBET IBARRA APAZA', 'Antropólogo'),
             # Peritos Contables
             ('ROSARIO CORDERO BORJA', 'Contable'),
@@ -1373,17 +1373,15 @@ def nuevo():
     return render_template('core/nuevo.html', peritos=peritos_por_tipo)
 
 @app.route('/buscar')
-@invitado_allowed  # ← CAMBIAR
+@invitado_allowed
 def buscar():
-    """
-    Página de búsqueda de asignaciones
-    """
     tipo_perito = None
     nombre_perito = None
     perito_id = session.get('perito_id')
     es_admin = session.get('rol') == 'admin'
+    es_invitado = session.get('rol') == 'invitado'  # ← AGREGAR
     
-    if perito_id and not es_admin:
+    if perito_id and not es_admin and not es_invitado:  # ← MODIFICAR
         conn = sqlite3.connect('database.db')
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -1395,7 +1393,7 @@ def buscar():
         conn.close()
     
     return render_template('core/buscar.html', 
-                          es_admin=es_admin, 
+                          es_admin=es_admin or es_invitado,  # ← MODIFICAR
                           tipo_perito=tipo_perito,
                           nombre_perito=nombre_perito,
                           perito_id=perito_id)
@@ -1420,8 +1418,10 @@ def calendario():
     nombre_perito = None
     perito_id = session.get('perito_id')
     es_admin = session.get('rol') == 'admin'
+    es_invitado = session.get('rol') == 'invitado'
     
-    if perito_id and not es_admin:
+    
+    if perito_id and not es_admin and not es_invitado:
         conn = sqlite3.connect('database.db')
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -1433,7 +1433,7 @@ def calendario():
         conn.close()
     
     return render_template('core/calendario.html',
-                          es_admin=es_admin,
+                          es_admin=es_admin or es_invitado,
                           tipo_perito=tipo_perito,
                           nombre_perito=nombre_perito,
                           perito_id=perito_id)
@@ -1505,7 +1505,7 @@ def get_asignaciones():
     '''
     params = []
     # Filtro por rol (perito solo ve las suyas)
-    if not es_admin and perito_id:
+    if not es_admin and not es_invitado and perito_id:
         query += ' AND a.perito_id = ?'
         params.append(perito_id)
     
@@ -1515,7 +1515,7 @@ def get_asignaciones():
         params.append(request.args.get('estado'))
     
     # Filtro por perito (para admin)
-    if request.args.get('perito_id') and es_admin:
+    if request.args.get('perito_id') and (es_admin or es_invitado):
         query += ' AND a.perito_id = ?'
         params.append(request.args.get('perito_id'))
     
@@ -1570,12 +1570,12 @@ def get_asignaciones():
     
     
     # Filtro por rol (perito solo ve las suyas)
-    if not es_admin and perito_id:
+    if not es_admin and not es_invitado and perito_id:
         query_vac += ' AND v.perito_id = ?'
         params_vac.append(perito_id)
     
     # Filtro por perito (para admin)
-    if request.args.get('perito_id') and es_admin:
+    if request.args.get('perito_id') and (es_admin or es_invitado):
         query_vac += ' AND v.perito_id = ?'
         params_vac.append(request.args.get('perito_id'))
     
@@ -1618,12 +1618,12 @@ def get_asignaciones():
     params_act = []
     
     # Filtro por rol (perito solo ve las suyas)
-    if not es_admin and perito_id:
+    if not es_admin and not es_invitado and perito_id:
         query_act += ' AND a.perito_id = ?'
         params_act.append(perito_id)
     
     # Filtro por perito específico (para admin)
-    if request.args.get('perito_id') and es_admin:
+    if request.args.get('perito_id') and (es_admin or es_invitado):
         query_act += ' AND a.perito_id = ?'
         params_act.append(request.args.get('perito_id'))
     
@@ -2052,7 +2052,7 @@ def get_estadisticas():
     })
 
 @app.route('/api/buscar', methods=['GET'])
-@login_required
+@login_required 
 def buscar_asignaciones():
     """
     Búsqueda avanzada de asignaciones
@@ -2071,6 +2071,7 @@ def buscar_asignaciones():
     # Determinar si filtrar por perito
     perito_id = session.get('perito_id')
     es_admin = session.get('rol') == 'admin'
+    es_invitado = session.get('rol') == 'invitado' 
     
     # ... al inicio ...
     query = request.args.get('q', '')
@@ -2155,7 +2156,7 @@ def buscar_asignaciones():
         params = []
     
     # Filtrar por rol (perito solo ve las suyas)
-    if not es_admin and perito_id:
+    if not es_admin and not es_invitado and perito_id:
         query += ' AND a.perito_id = ?'
         params.append(perito_id)
     
