@@ -459,6 +459,8 @@ def actualizar_estados_automaticos():
         UPDATE asignaciones 
         SET estado = "En Proceso"
         WHERE estado = "Pendiente" 
+        AND fecha_inicio IS NOT NULL
+        AND fecha_fin IS NOT NULL
         AND date(fecha_inicio) <= date('now')
         AND date(fecha_fin) >= date('now')
     ''')
@@ -468,12 +470,12 @@ def actualizar_estados_automaticos():
         UPDATE asignaciones 
         SET estado = "Completado"
         WHERE estado IN ("Pendiente", "En Proceso")
+        AND fecha_fin IS NOT NULL
         AND date(fecha_fin) < date('now')
     ''')
     
     conn.commit()
     conn.close()
-
 
 # ============================================================================
 # FUNCIONES AUXILIARES
@@ -1523,12 +1525,13 @@ def get_asignaciones():
         params.append(request.args.get('perito_id'))
     
     # Filtro por rango de fechas
+    # Filtro por rango de fechas (solo si las asignaciones tienen fechas)
     if request.args.get('fecha_desde'):
-        query += ' AND a.fecha_inicio >= ?'
+        query += ' AND fecha_inicio IS NOT NULL AND a.fecha_inicio >= ?'
         params.append(request.args.get('fecha_desde'))
     
     if request.args.get('fecha_hasta'):
-        query += ' AND a.fecha_fin <= ?'
+        query += ' AND fecha_fin IS NOT NULL AND a.fecha_fin <= ?'
         params.append(request.args.get('fecha_hasta'))
     
     query += ' ORDER BY a.fecha_inicio DESC'
@@ -1724,7 +1727,7 @@ def crear_asignacion():
     data = request.json
     
     # Validar datos requeridos
-    if not all(k in data for k in ('perito_id', 'fecha_inicio', 'fecha_fin')):
+    if not data.get('perito_id'):
         return jsonify({'error': 'Faltan datos requeridos'}), 400
     
     # Verificar disponibilidad del perito
