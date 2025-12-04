@@ -46,19 +46,20 @@
     
     <!-- Navegación Principal -->
     <nav class="bg-blue-900 text-white shadow-lg">
-        <div class="container mx-auto px-4">
+        <div class="w-full px-4">
             <div class="flex justify-between items-center py-3">
-                <!-- Logo y Título -->
+                
+                <!-- Logo y Título - FIJO A LA IZQUIERDA -->
                 <div class="flex items-center space-x-3">
                     <img src="{{ url_for('static', filename='imagenes/logompo.png') }}" alt="Logo" class="w-10 h-10 object-contain">
                     <div class="hidden md:block">
-                        <h1 class="text-lx font-bold">Sistema de Monitorio y Gestión</h1>
+                        <h1 class="text-lx font-bold">Sistema de Monitoreo y Gestión</h1>
                         <p class="text-xs text-blue-200">Unidad de Peritajes - FECOR</p>
                     </div>
                 </div>
                 
-                <!-- Menú de navegación -->
-                <div class="flex items-center space-x-1">
+                <!-- Menú de navegación - CENTRO FLEXIBLE -->
+                <div class="flex items-center space-x-1 flex-grow justify-center">
                     <a href="/" class="px-3 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition text-sm">
                         <i class="fas fa-home mr-1"></i>Dashboard
                     </a>
@@ -106,23 +107,27 @@
                     {% endif %}
                 </div>
                 
-                <!-- Usuario y Salir -->
-                <div class="flex items-center space-x-3 border-l border-blue-700 pl-4">
-                    <div class="text-right hidden md:block">
-                        <p class="text-sm font-semibold">{{ session.nombre_completo or session.usuario }}</p>
+                <!-- Usuario y Salir - FIJO A LA DERECHA -->
+                <div class="flex items-center space-x-2 flex-shrink-0 border-l border-blue-700 pl-4 w-64 justify-end">
+                    <div class="text-right">
+                        <p class="text-xs font-semibold truncate max-w-[150px]">{{ session.nombre_completo or session.usuario }}</p>
                         {% if tipo_perito %}
-                        <p class="text-xs text-blue-300">Perito {{ tipo_perito }}</p>
+                        <p class="text-xs text-blue-200">Perito {{ tipo_perito }}</p>
                         {% elif session.rol == 'admin' %}
-                        <p class="text-xs text-blue-300">Administrador</p>
+                        <p class="text-xs text-blue-200">Administrador</p>
+                        {% elif session.rol == 'invitado' %}
+                        <p class="text-xs text-blue-200">Invitado</p>
                         {% endif %}
                     </div>
-                    <a href="/logout" class="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition text-sm font-semibold">
+                    <a href="/logout" class="px-3 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition text-xs font-semibold whitespace-nowrap">
                         <i class="fas fa-sign-out-alt mr-1"></i>Salir
                     </a>
                 </div>
+                
             </div>
         </div>
     </nav>
+
 
     <!-- Contenido Principal -->
     <div class="container mx-auto px-4 py-8">

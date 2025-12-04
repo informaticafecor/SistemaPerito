@@ -37,19 +37,19 @@
     
     <!-- Navegación Principal -->
     <nav class="bg-blue-900 text-white shadow-lg">
-        <div class="container mx-auto px-4">
+        <div class="w-full px-4">
             <div class="flex justify-between items-center py-3">
-                <!-- Logo y Título -->
+                
+                <!-- Logo y Título - FIJO A LA IZQUIERDA -->
                 <div class="flex items-center space-x-3">
                     <img src="{{ url_for('static', filename='imagenes/logompo.png') }}" alt="Logo" class="w-10 h-10 object-contain">
                     <div class="hidden md:block">
-                        <h1 class="text-lx font-bold">Sistema de Monitorio y Gestión</h1>
+                        <h1 class="text-lx font-bold">Sistema de Monitoreo y Gestión</h1>
                         <p class="text-xs text-blue-200">Unidad de Peritajes - FECOR</p>
                     </div>
                 </div>
-                
-                <!-- Menú de navegación -->
-                <div class="flex items-center space-x-1">
+                <!-- Menú de navegación - CENTRO FLEXIBLE -->
+                <div class="flex items-center space-x-1 flex-grow justify-center">
                     <a href="/" class="px-3 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition text-sm">
                         <i class="fas fa-home mr-1"></i>Dashboard
                     </a>
@@ -97,24 +97,26 @@
                     {% endif %}
                 </div>
                 
-                <!-- Usuario y Salir -->
-                <div class="flex items-center space-x-3 border-l border-blue-700 pl-4">
-                    <div class="text-right hidden md:block">
-                        <p class="text-sm font-semibold">{{ session.nombre_completo or session.usuario }}</p>
+                <!-- Usuario y Salir - FIJO A LA DERECHA -->
+                <div class="flex items-center space-x-2 flex-shrink-0 border-l border-blue-700 pl-4 w-64 justify-end">
+                    <div class="text-right">
+                        <p class="text-xs font-semibold truncate max-w-[150px]">{{ session.nombre_completo or session.usuario }}</p>
                         {% if tipo_perito %}
-                        <p class="text-xs text-blue-300">Perito {{ tipo_perito }}</p>
+                        <p class="text-xs text-blue-200">Perito {{ tipo_perito }}</p>
                         {% elif session.rol == 'admin' %}
-                        <p class="text-xs text-blue-300">Administrador</p>
+                        <p class="text-xs text-blue-200">Administrador</p>
+                        {% elif session.rol == 'invitado' %}
+                        <p class="text-xs text-blue-200">Invitado</p>
                         {% endif %}
                     </div>
-                    <a href="/logout" class="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition text-sm font-semibold">
+                    <a href="/logout" class="px-3 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition text-xs font-semibold whitespace-nowrap">
                         <i class="fas fa-sign-out-alt mr-1"></i>Salir
                     </a>
                 </div>
+                
             </div>
         </div>
     </nav>
-
 
     <!-- Contenido Principal -->
     <div class="container mx-auto px-4 py-8">
@@ -244,7 +246,7 @@
 
         <!-- Tabla de Asignaciones Recientes -->
         <div class="bg-white rounded-xl shadow-md overflow-hidden fade-in" style="animation-delay: 0.4s">
-            <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4"">
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-4">
                 <h2 class="text-xl font-bold text-white flex items-center">
                     <i class="fas fa-list-ul mr-2 text-blue-600"></i>
                     Asignaciones Recientes
@@ -479,6 +481,23 @@
             </div>
             <div id="contenidoDetalle" class="p-6">
                 <!-- El contenido se cargará dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para EDITAR Asignación -->
+    <div id="modalEditar" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="bg-gradient-to-r from-green-900 to-green-800 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+                <h3 class="text-xl font-bold text-white">
+                    <i class="fas fa-edit mr-2"></i>Editar Asignación
+                </h3>
+                <button onclick="cerrarModalEditar()" class="text-white hover:text-gray-200">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div id="contenidoEditar" class="p-6">
+                <!-- El formulario se cargará dinámicamente -->
             </div>
         </div>
     </div>
@@ -728,10 +747,224 @@
          * Función para editar asignación (redirige a página de edición)
          */
         function editarAsignacion(id) {
-            if (confirm('¿Deseas editar esta asignación?')) {
-                // Redirigir a página de edición con el ID
-                window.location.href = `/editar/${id}`;
-            }
+            // Cerrar modal de detalle
+            document.getElementById('modalDetalle').classList.add('hidden');
+            
+            // Mostrar modal de edición
+            document.getElementById('modalEditar').classList.remove('hidden');
+            
+            // Cargar datos
+            fetch(`/api/asignacion/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    const contenido = `
+                        <form id="formEditar" onsubmit="guardarEdicion(event, ${id})">
+                            <div class="grid grid-cols-2 gap-4">
+                                
+                                <!-- Hoja de Envío -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Hoja de Envío</label>
+                                    <input type="text" name="hoja_envio" value="${data.hoja_envio || ''}"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                
+                                <!-- Expediente -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Expediente</label>
+                                    <input type="text" name="expediente" value="${data.expediente || ''}"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                
+                                <!-- Dependencia -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Dependencia</label>
+                                    <input type="text" name="dependencia" value="${data.dependencia || ''}"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                
+                                <!-- Carpeta Fiscal -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Carpeta Fiscal</label>
+                                    <input type="text" name="carpeta_fiscal" value="${data.carpeta_fiscal || ''}"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                
+                                <!-- Denominación -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Denominación</label>
+                                    <input type="text" name="denominacion" value="${data.denominacion || ''}"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                
+                                <!-- Tipo de Perito -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de Perito</label>
+                                    <select name="tipo_perito" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                        <option value="Informático" ${data.tipo_perito === 'Informático' ? 'selected' : ''}>Informático</option>
+                                        <option value="Acústico" ${data.tipo_perito === 'Acústico' ? 'selected' : ''}>Acústico</option>
+                                        <option value="Antropólogo" ${data.tipo_perito === 'Antropólogo' ? 'selected' : ''}>Antropólogo</option>
+                                        <option value="Contable" ${data.tipo_perito === 'Contable' ? 'selected' : ''}>Contable</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Tipo de Actividad -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de Actividad</label>
+                                    <select name="tipo_actividad" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="Diligencia" ${data.tipo_actividad === 'Diligencia' ? 'selected' : ''}>Diligencia</option>
+                                        <option value="Juicio Oral" ${data.tipo_actividad === 'Juicio Oral' ? 'selected' : ''}>Juicio Oral</option>
+                                        <option value="Estudio de caso" ${data.tipo_actividad === 'Estudio de caso' ? 'selected' : ''}>Estudio de caso</option>
+                                        <option value="Post Operativo" ${data.tipo_actividad === 'Post Operativo' ? 'selected' : ''}>Post Operativo</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Perito Asignado -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Perito Asignado</label>
+                                    <select name="perito_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                        <!-- Se cargará dinámicamente -->
+                                    </select>
+                                </div>
+                                
+                                <!-- Fecha Inicio -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Fecha Inicio</label>
+                                    <input type="date" name="fecha_inicio" value="${data.fecha_inicio || ''}"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                
+                                <!-- Fecha Fin -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Fecha Fin</label>
+                                    <input type="date" name="fecha_fin" value="${data.fecha_fin || ''}"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                
+                                <!-- Lugar -->
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Lugar</label>
+                                    <input type="text" name="lugar" value="${data.lugar || ''}"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                
+                                <!-- Hoja Envío Designación -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Hoja Envío Designación</label>
+                                    <input type="text" name="hoja_envio_designacion" value="${data.hoja_envio_designacion || ''}"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                
+                                <!-- Designación -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Designación</label>
+                                    <input type="text" name="desginacion" value="${data.desginacion || ''}"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                
+                                <!-- Oficio Desplazamiento -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Oficio Desplazamiento</label>
+                                    <input type="text" name="oficio_desplazamiento" value="${data.oficio_desplazamiento || ''}"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                
+                                <!-- Estado -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Estado</label>
+                                    <select name="estado" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                        <option value="Pendiente" ${data.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                                        <option value="En Proceso" ${data.estado === 'En Proceso' ? 'selected' : ''}>En Proceso</option>
+                                        <option value="Completado" ${data.estado === 'Completado' ? 'selected' : ''}>Completado</option>
+                                        <option value="Cancelado" ${data.estado === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Observaciones -->
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Observaciones</label>
+                                    <textarea name="observaciones" rows="3"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">${data.observaciones || ''}</textarea>
+                                </div>
+                                
+                            </div>
+                            
+                            <div class="mt-6 flex justify-end space-x-3">
+                                <button type="button" onclick="cerrarModalEditar()" 
+                                        class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                                    <i class="fas fa-times mr-2"></i>Cancelar
+                                </button>
+                                <button type="submit" 
+                                        class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                                    <i class="fas fa-save mr-2"></i>Guardar Cambios
+                                </button>
+                            </div>
+                        </form>
+                    `;
+                    
+                    document.getElementById('contenidoEditar').innerHTML = contenido;
+                    
+                    // Cargar peritos
+                    fetch('/api/peritos')
+                        .then(response => response.json())
+                        .then(peritos => {
+                            const select = document.querySelector('#formEditar select[name="perito_id"]');
+                            select.innerHTML = peritos.map(p => 
+                                `<option value="${p.id}" ${p.id === data.perito_id ? 'selected' : ''}>${p.nombre_completo}</option>`
+                            ).join('');
+                        });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al cargar datos para edición');
+                });
+        }
+
+
+        function cerrarModalEditar() {
+            document.getElementById('modalEditar').classList.add('hidden');
+        }
+
+        function guardarEdicion(event, id) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            fetch(`/api/asignacion/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    // Mostrar estado actualizado si cambió
+                    let mensaje = '✅ Asignación actualizada correctamente';
+                    if (result.estado_actualizado) {
+                        mensaje += `\n📊 Estado: ${result.estado_actualizado}`;
+                    }
+                    
+                    alert(mensaje);
+                    cerrarModalEditar();
+                    
+                    // Limpiar caché si existe
+                    if (localStorage.getItem('calendarioCache')) {
+                        localStorage.removeItem('calendarioCache');
+                    }
+                    
+                    // Recargar para ver cambios
+                    location.reload();
+                } else {
+                    alert('❌ Error: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error al guardar cambios');
+            });
         }
 
         function eliminarAsignacion(id) {

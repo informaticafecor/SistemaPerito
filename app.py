@@ -1414,13 +1414,16 @@ def calendario():
     """
     Vista de calendario con asignaciones
     """
+    # Actualizar estados automáticamente
+    actualizar_estados_automaticos()
+        
     tipo_perito = None
     nombre_perito = None
     perito_id = session.get('perito_id')
     es_admin = session.get('rol') == 'admin'
     es_invitado = session.get('rol') == 'invitado'
     
-    
+
     if perito_id and not es_admin and not es_invitado:
         conn = sqlite3.connect('database.db')
         conn.row_factory = sqlite3.Row
@@ -1794,11 +1797,13 @@ def crear_asignacion():
 
 
 @app.route('/api/asignacion/<int:id>', methods=['PUT'])
-@login_required  # ← AGREGAR
+@login_required
 def actualizar_asignacion(id):
     """
     Actualiza una asignación existente
     """
+    from datetime import datetime, date
+    
     data = request.json
     
     # Si se están cambiando las fechas, verificar disponibilidad
@@ -1816,6 +1821,26 @@ def actualizar_asignacion(id):
                 'conflictos': conflictos
             }), 409
     
+    # ⬇️ CALCULAR ESTADO AUTOMÁTICO SI HAY FECHAS ⬇️
+    if 'fecha_inicio' in data and 'fecha_fin' in data and data['fecha_inicio'] and data['fecha_fin']:
+        try:
+            fecha_inicio = datetime.strptime(data['fecha_inicio'], '%Y-%m-%d').date()
+            fecha_fin = datetime.strptime(data['fecha_fin'], '%Y-%m-%d').date()
+            hoy = date.today()
+            
+            # Calcular estado automático (solo si no es Cancelado)
+            estado_actual = data.get('estado', '')
+            if estado_actual != 'Cancelado':
+                if hoy < fecha_inicio:
+                    data['estado'] = 'Pendiente'
+                elif fecha_inicio <= hoy <= fecha_fin:
+                    data['estado'] = 'En Proceso'
+                else:  # hoy > fecha_fin
+                    data['estado'] = 'Completado'
+        except:
+            pass  # Si hay error parseando fechas, mantener estado original
+    # ⬆️ FIN DEL CÁLCULO ⬆️
+    
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     
@@ -1825,7 +1850,7 @@ def actualizar_asignacion(id):
     
     campos_permitidos = [
         'hoja_envio', 'expediente', 'dependencia', 'tipo_perito', 'tipo_actividad', 'apoyo_tecnico',
-        'carpeta_fiscal', 'hoja_envio_designacion','denominacion', 'observaciones', 'lugar', 'fecha_inicio',
+        'carpeta_fiscal', 'hoja_envio_designacion', 'denominacion', 'observaciones', 'lugar', 'fecha_inicio',
         'fecha_fin', 'perito_asignado', 'perito_id', 'desginacion',
         'oficio_desplazamiento', 'estado'
     ]
@@ -1847,22 +1872,23 @@ def actualizar_asignacion(id):
     
     # Registrar en historial
     registrar_historial(id, 'Modificado', f'Campos actualizados: {", ".join(campos)}')
-
-    # ... código ...
+    
+    # Registrar en auditoría
+    estado_info = f" - Estado: {data.get('estado', 'sin cambio')}" if 'estado' in data else ''
     registrar_auditoria(
         session['usuario_id'],
         session.get('nombre_completo'),
         'EDITAR_ASIGNACION',
         'ASIGNACIONES',
-        f"Asignación ID {id} editada",
+        f"Asignación ID {id} editada{estado_info}",
         id
     )    
     
     return jsonify({
         'success': True,
-        'message': 'Asignación actualizada exitosamente'
+        'message': 'Asignación actualizada exitosamente',
+        'estado_actualizado': data.get('estado')  # ← DEVOLVER ESTADO
     })
-
 # ------------------------------------------------------
 
 @app.route('/api/asignacion/<int:id>', methods=['DELETE'])
@@ -3290,9 +3316,14 @@ def crear_vacacion():
     """
     data = request.json
     
+    #PARA QUE NO SEA OLBITARIO LA FECHA
     # Validar datos requeridos
-    if not all(k in data for k in ('perito_id', 'fecha_inicio', 'fecha_fin')):
+    #if not all(k in data for k in ('perito_id', 'fecha_inicio', 'fecha_fin')):
+    #    return jsonify({'error': 'Faltan datos requeridos'}), 400
+    
+    if not data.get('perito_id'):
         return jsonify({'error': 'Faltan datos requeridos'}), 400
+
     
     # Calcular días totales
     from datetime import datetime
