@@ -485,16 +485,12 @@ def actualizar_estados_automaticos():
 def verificar_disponibilidad(perito_id, fecha_inicio, fecha_fin, asignacion_id=None):
     """
     Verifica si un perito está disponible en un rango de fechas.
-    
-    Args:
-        perito_id: ID del perito a verificar
-        fecha_inicio: Fecha de inicio de la asignación (formato: YYYY-MM-DD)
-        fecha_fin: Fecha de fin de la asignación (formato: YYYY-MM-DD)
-        asignacion_id: ID de asignación a excluir (para ediciones)
-    
-    Returns:
-        tuple: (disponible: bool, conflictos: list de diccionarios)
+    PERMITE múltiples asignaciones sin fecha.
     """
+    # Si no hay fechas, NO verificar conflictos (permitir)
+    if not fecha_inicio or not fecha_fin:
+        return True, []
+    
     conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -509,6 +505,8 @@ def verificar_disponibilidad(perito_id, fecha_inicio, fecha_fin, asignacion_id=N
         FROM asignaciones
         WHERE perito_id = ?
         AND estado != 'Cancelado'
+        AND fecha_inicio IS NOT NULL
+        AND fecha_fin IS NOT NULL
         AND (
             (fecha_inicio <= ? AND fecha_fin >= ?) OR
             (fecha_inicio <= ? AND fecha_fin >= ?) OR
@@ -531,7 +529,6 @@ def verificar_disponibilidad(perito_id, fecha_inicio, fecha_fin, asignacion_id=N
     cursor.execute(query, params)
     resultados_asignaciones = cursor.fetchall()
     
-    # Convertir asignaciones a diccionarios
     for row in resultados_asignaciones:
         conflictos.append({
             'id': row['id'],
@@ -563,7 +560,6 @@ def verificar_disponibilidad(perito_id, fecha_inicio, fecha_fin, asignacion_id=N
     
     resultados_vacaciones = cursor.fetchall()
     
-    # Convertir vacaciones a diccionarios
     for row in resultados_vacaciones:
         conflictos.append({
             'id': row['id'],
@@ -576,11 +572,12 @@ def verificar_disponibilidad(perito_id, fecha_inicio, fecha_fin, asignacion_id=N
             'observaciones': f"Período de vacaciones ({row['tipo_vacaciones']}) - {row['dias_totales']} días"
         })
     
-    conn.close()  # ← CERRAR CONEXIÓN AL FINAL
+    conn.close()
     
     disponible = len(conflictos) == 0
     
     return disponible, conflictos
+
 
 def registrar_historial(asignacion_id, accion, detalles=''):
     """
@@ -1670,6 +1667,7 @@ def get_asignaciones():
  
 
 @app.route('/api/asignacion/<int:id>', methods=['GET'])
+@login_required
 def get_asignacion(id):
     """
     Obtiene una asignación específica por ID
@@ -1731,18 +1729,20 @@ def crear_asignacion():
         return jsonify({'error': 'Faltan datos requeridos'}), 400
     
     # Verificar disponibilidad del perito
-    disponible, conflictos = verificar_disponibilidad(
-        data['perito_id'],
-        data['fecha_inicio'],
-        data['fecha_fin']
-    )
-    
-    if not disponible:
-        return jsonify({
-            'error': 'El perito no está disponible en estas fechas',
-            'conflictos': conflictos
-        }), 409
-    
+    if data.get('fecha_inicio') and data.get('fecha_fin'):  # ← AGREGAR ESTA CONDICIÓN
+
+        disponible, conflictos = verificar_disponibilidad(
+            data['perito_id'],
+            data['fecha_inicio'],
+            data['fecha_fin']
+        )
+        
+        if not disponible:
+            return jsonify({
+                'error': 'El perito no está disponible en estas fechas',
+                'conflictos': conflictos
+            }), 409
+        
     # Insertar asignación
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()

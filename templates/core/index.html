@@ -746,6 +746,7 @@
         /**
          * Función para editar asignación (redirige a página de edición)
          */
+
         function editarAsignacion(id) {
             // Cerrar modal de detalle
             document.getElementById('modalDetalle').classList.add('hidden');
@@ -757,6 +758,14 @@
             fetch(`/api/asignacion/${id}`)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('📊 Datos recibidos:', data); // Debug
+                    
+                    // Obtener nombre del perito (puede venir como perito_nombre o nombre_completo)
+                    const nombrePerito = data.perito_nombre || data.nombre_completo || data.perito_asignado || 'Sin asignar';
+                    console.log('👤 Nombre perito:', nombrePerito);
+                    console.log('🆔 Perito ID:', data.perito_id);
+                    console.log('📋 Tipo actividad:', data.tipo_actividad);
+                    
                     const contenido = `
                         <form id="formEditar" onsubmit="guardarEdicion(event, ${id})">
                             <div class="grid grid-cols-2 gap-4">
@@ -796,15 +805,16 @@
                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
                                 </div>
                                 
-                                <!-- Tipo de Perito -->
+                                <!-- Tipo de Perito - BLOQUEADO -->
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de Perito</label>
-                                    <select name="tipo_perito" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                                        <option value="Informático" ${data.tipo_perito === 'Informático' ? 'selected' : ''}>Informático</option>
-                                        <option value="Acústico" ${data.tipo_perito === 'Acústico' ? 'selected' : ''}>Acústico</option>
-                                        <option value="Antropólogo" ${data.tipo_perito === 'Antropólogo' ? 'selected' : ''}>Antropólogo</option>
-                                        <option value="Contable" ${data.tipo_perito === 'Contable' ? 'selected' : ''}>Contable</option>
-                                    </select>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        Tipo de Perito <span class="text-xs text-gray-500">(No editable)</span>
+                                    </label>
+                                    <input type="text" 
+                                        value="${data.tipo_perito || 'N/A'}"
+                                        readonly
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed">
+                                    <input type="hidden" name="tipo_perito" value="${data.tipo_perito || ''}">
                                 </div>
                                 
                                 <!-- Tipo de Actividad -->
@@ -816,14 +826,18 @@
                                         <option value="Juicio Oral" ${data.tipo_actividad === 'Juicio Oral' ? 'selected' : ''}>Juicio Oral</option>
                                         <option value="Estudio de caso" ${data.tipo_actividad === 'Estudio de caso' ? 'selected' : ''}>Estudio de caso</option>
                                         <option value="Post Operativo" ${data.tipo_actividad === 'Post Operativo' ? 'selected' : ''}>Post Operativo</option>
+                                        <option value="Diligencias de Toma de muestra de Voz" ${data.tipo_actividad === 'Diligencias de Toma de muestra de Voz' ? 'selected' : ''}>Diligencias de Toma de muestra de Voz</option>
+                                        ${data.tipo_actividad && !['Diligencia', 'Juicio Oral', 'Estudio de caso', 'Post Operativo', 'Diligencias de Toma de muestra de Voz'].includes(data.tipo_actividad) ? 
+                                            `<option value="${data.tipo_actividad}" selected>${data.tipo_actividad}</option>` : 
+                                        ''}
                                     </select>
                                 </div>
                                 
                                 <!-- Perito Asignado -->
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">Perito Asignado</label>
-                                    <select name="perito_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                                        <!-- Se cargará dinámicamente -->
+                                    <select name="perito_id" id="selectPeritoEditar" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                        <option value="">Cargando...</option>
                                     </select>
                                 </div>
                                 
@@ -873,10 +887,10 @@
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">Estado</label>
                                     <select name="estado" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                                        <option value="Pendiente" ${data.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                                        <option value="En Proceso" ${data.estado === 'En Proceso' ? 'selected' : ''}>En Proceso</option>
-                                        <option value="Completado" ${data.estado === 'Completado' ? 'selected' : ''}>Completado</option>
-                                        <option value="Cancelado" ${data.estado === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
+                                        <option value="Pendiente" ${(data.estado || '') === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                                        <option value="En Proceso" ${(data.estado || '') === 'En Proceso' ? 'selected' : ''}>En Proceso</option>
+                                        <option value="Completado" ${(data.estado || '') === 'Completado' ? 'selected' : ''}>Completado</option>
+                                        <option value="Cancelado" ${(data.estado || '') === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
                                     </select>
                                 </div>
                                 
@@ -904,22 +918,46 @@
                     
                     document.getElementById('contenidoEditar').innerHTML = contenido;
                     
-                    // Cargar peritos
+                    // Cargar peritos en el select
                     fetch('/api/peritos')
                         .then(response => response.json())
                         .then(peritos => {
-                            const select = document.querySelector('#formEditar select[name="perito_id"]');
-                            select.innerHTML = peritos.map(p => 
-                                `<option value="${p.id}" ${p.id === data.perito_id ? 'selected' : ''}>${p.nombre_completo}</option>`
-                            ).join('');
+                            const select = document.getElementById('selectPeritoEditar');
+                            
+                            console.log('📋 Lista de peritos:', peritos);
+                            console.log('🎯 Buscando perito con ID:', data.perito_id);
+                            
+                            // Limpiar select
+                            select.innerHTML = '';
+                            
+                            // Agregar opciones una por una
+                            peritos.forEach(p => {
+                                const option = document.createElement('option');
+                                option.value = p.id;
+                                option.textContent = p.nombre_completo;  // ← USAR textContent en lugar de template string
+                                
+                                if (parseInt(p.id) === parseInt(data.perito_id)) {
+                                    option.selected = true;
+                                    console.log('✅ Perito seleccionado:', p.nombre_completo);
+                                }
+                                
+                                select.appendChild(option);
+                            });
+                            
+                            // Verificar resultado final
+                            console.log('📊 Valor final del select:', select.value);
+                            console.log('📊 Texto final del select:', select.options[select.selectedIndex]?.textContent);
+                        })
+                        .catch(error => {
+                            console.error('❌ Error al cargar peritos:', error);
+                            alert('Error al cargar lista de peritos');
                         });
                 })
                 .catch(error => {
-                    console.error('Error:', error);
+                    console.error('❌ Error al cargar asignación:', error);
                     alert('Error al cargar datos para edición');
                 });
-        }
-
+        } 
 
         function cerrarModalEditar() {
             document.getElementById('modalEditar').classList.add('hidden');
