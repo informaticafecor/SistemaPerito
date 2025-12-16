@@ -61,17 +61,19 @@
                 </div>
                 <!-- Menú de navegación - CENTRO FLEXIBLE -->
                 <div class="flex items-center space-x-1 flex-grow justify-center">
+                    {% if session.rol == 'admin' %}
                     <a href="/" class="px-3 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition text-sm">
                         <i class="fas fa-home mr-1"></i>Dashboard
                     </a>
-                    {% if session.rol == 'admin' %}
+                    
                     <a href="/nuevo" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-plus mr-1"></i>Nueva
                     </a>
-                    {% endif %}
+                  
                     <a href="/buscar" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-search mr-1"></i>Buscar
                     </a>
+                    {% endif %}
                     <a href="/calendario" class="px-3 py-2 rounded-lg hover:bg-blue-800 transition text-sm">
                         <i class="fas fa-calendar mr-1"></i>Calendario
                     </a>
