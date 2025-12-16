@@ -1326,7 +1326,7 @@ def index():
     
     conn.close()
     
-    return render_template('core/index.html',
+    return render_template('core/calendario.html',
                          total=total_asignaciones,
                          pendientes=pendientes,
                          en_proceso=en_proceso,
