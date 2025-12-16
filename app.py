@@ -1211,7 +1211,7 @@ def exportar_auditoria():
 # NUEVO CODIGO CAMBIADO A ROLES
 
 @app.route('/')
-@invitado_allowed
+@login_required  # ← AGREGAR
 def index():
     """
     Página principal - Dashboard con estadísticas generales y paginación
@@ -1326,7 +1326,7 @@ def index():
     
     conn.close()
     
-    return render_template('core/calendario.html',
+    return render_template('core/index.html',
                          total=total_asignaciones,
                          pendientes=pendientes,
                          en_proceso=en_proceso,
