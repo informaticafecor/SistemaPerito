@@ -2794,18 +2794,25 @@ def mis_actividades():
                           actividades=actividades)
 
 
+
 @app.route('/api/actividad', methods=['POST'])
 @login_required
 def crear_actividad():
     """
-    Crear nueva actividad de perito
+    Crear nueva actividad de perito (perito o admin)
     """
-    # Solo peritos pueden crear actividades
-    if session.get('rol') != 'perito':
-        return jsonify({'success': False, 'error': 'No autorizado'}), 403
-    
     data = request.json
-    perito_id = session.get('perito_id')
+    
+    # Si es admin, debe enviar perito_id
+    # Si es perito, usar su propio perito_id
+    if session.get('rol') == 'admin':
+        perito_id = data.get('perito_id')
+        if not perito_id:
+            return jsonify({'success': False, 'error': 'Debe seleccionar un perito'}), 400
+    elif session.get('rol') == 'perito':
+        perito_id = session.get('perito_id')
+    else:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 403
     
     # Validaciones
     if not data.get('tipo_actividad') or not data.get('fecha_inicio') or not data.get('fecha_fin'):
@@ -2817,15 +2824,20 @@ def crear_actividad():
     # Obtener tipo de perito
     cursor.execute('SELECT tipo FROM peritos WHERE id = ?', (perito_id,))
     result = cursor.fetchone()
-    tipo_perito = result[0] if result else ''
+    
+    if not result:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Perito no encontrado'}), 404
+    
+    tipo_perito = result[0]
     
     try:
         cursor.execute('''
             INSERT INTO actividades_peritos (
                 perito_id, tipo_perito, dependencia, carpeta_fiscal, denominacion,
                 tipo_actividad, apoyo_tecnico, observaciones,
-                fecha_inicio, fecha_fin, hora_inicio, hora_fin, estado
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                fecha_inicio, fecha_fin, hora_inicio, hora_fin
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             perito_id,
             tipo_perito,
@@ -2838,8 +2850,7 @@ def crear_actividad():
             data['fecha_inicio'],
             data['fecha_fin'],
             data.get('hora_inicio', ''),
-            data.get('hora_fin', ''),
-            'Pendiente'  # ← Estado por defecto
+            data.get('hora_fin', '')
         ))
         
         actividad_id = cursor.lastrowid
@@ -2852,7 +2863,7 @@ def crear_actividad():
             session.get('nombre_completo'),
             'CREAR_ACTIVIDAD',
             'ACTIVIDADES',
-            f"Actividad '{data['tipo_actividad']}' registrada",
+            f"Actividad '{data['tipo_actividad']}' registrada para perito ID {perito_id}",
             actividad_id
         )
         

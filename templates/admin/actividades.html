@@ -111,6 +111,13 @@
                 </h2>
                 <p class="text-gray-600 mt-1">Vista general de todas las actividades registradas por los peritos</p>
             </div>
+            <div class="mb-6 flex justify-end">
+                <button onclick="abrirModal()" 
+                        class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition shadow-lg">
+                    <i class="fas fa-plus mr-2"></i>Nueva Actividad
+                </button>
+            </div>
+            
         </div>
 
         <!-- Filtros -->
@@ -263,6 +270,175 @@
         </div>
     </div>
 
+    <!-- Modal: Nueva Actividad (ADMIN) -->
+    <div id="modalActividad" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" onclick="cerrarModalClickAfuera(event, 'modalActividad')">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full my-8" onclick="event.stopPropagation()">
+                <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex justify-between items-center rounded-t-xl">
+                    <h3 class="text-xl font-bold text-white">
+                        <i class="fas fa-plus-circle mr-2"></i>Registrar Nueva Actividad
+                    </h3>
+                    <button onclick="cerrarModal()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                
+                <form id="formActividad" class="p-6 space-y-6">
+                    
+                    <!-- NUEVO: Selección de Perito (SOLO ADMIN) -->
+                    <div class="border-b pb-4 bg-green-50 p-4 rounded-lg">
+                        <h4 class="text-lg font-bold text-gray-700 mb-4">
+                            <i class="fas fa-user-tie text-green-600 mr-2"></i>Seleccionar Perito
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Perito <span class="text-red-500">*</span>
+                                </label>
+                                <select id="perito_id" required onchange="cargarActividadesYApoyos()"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                    <option value="">Seleccione un perito...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Tipo de Perito
+                                </label>
+                                <input type="text" id="tipo_perito_mostrar" readonly
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Información del Caso -->
+                    <div class="border-b pb-4">
+                        <h4 class="text-lg font-bold text-gray-700 mb-4">
+                            <i class="fas fa-folder-open text-blue-600 mr-2"></i>Información del Caso
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Dependencia</label>
+                                <input type="text" id="dependencia"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Ej: Fiscalía Provincial Penal de Lima">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Carpeta Fiscal</label>
+                                <input type="text" id="carpeta_fiscal"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Ej: 1234-2024-0">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Denominación</label>
+                                <input type="text" id="denominacion"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Ej: Caso por delito informático">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tipo de Actividad -->
+                    <div class="border-b pb-4">
+                        <h4 class="text-lg font-bold text-gray-700 mb-4">
+                            <i class="fas fa-tasks text-purple-600 mr-2"></i>Detalles de la Actividad
+                        </h4>
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Tipo de Actividad <span class="text-red-500">*</span>
+                                </label>
+                                <select id="tipo_actividad" required
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Seleccione primero un perito</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Apoyo Técnico (Opcional)</label>
+                                <select id="apoyo_tecnico"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Sin apoyo técnico</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Observaciones / Descripción del Trabajo</label>
+                                <textarea id="observaciones" rows="3"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Describe brevemente la actividad realizada..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Fechas y Horarios -->
+                    <div class="border-b pb-4">
+                        <h4 class="text-lg font-bold text-gray-700 mb-4">
+                            <i class="fas fa-calendar-alt text-orange-600 mr-2"></i>Fechas y Horarios
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Fecha de Inicio <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" id="fecha_inicio" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Fecha de Fin <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" id="fecha_fin" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Hora de Inicio (Opcional)</label>
+                                <input type="time" id="hora_inicio"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <p class="text-xs text-gray-500 mt-1">Deja en blanco si es todo el día</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Hora de Fin (Opcional)</label>
+                                <input type="time" id="hora_fin"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Archivos Adjuntos -->
+                    <div>
+                        <h4 class="text-lg font-bold text-gray-700 mb-4">
+                            <i class="fas fa-paperclip text-red-600 mr-2"></i>Archivos Adjuntos (Opcional)
+                        </h4>
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                            <p class="text-gray-600 mb-2">Arrastra archivos aquí o haz clic para seleccionar</p>
+                            <input type="file" id="archivos" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                class="hidden">
+                            <button type="button" onclick="document.getElementById('archivos').click()"
+                                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                Seleccionar Archivos
+                            </button>
+                            <p class="text-xs text-gray-500 mt-2">PDF, Word, imágenes (Máx. 10MB por archivo)</p>
+                        </div>
+                        <div id="listaArchivos" class="mt-3 space-y-2"></div>
+                    </div>
+                    
+                    <!-- Botones -->
+                    <div class="flex justify-end space-x-3 pt-4 border-t">
+                        <button type="button" onclick="cerrarModal()" 
+                                class="px-6 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition">
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                                class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
+                            <i class="fas fa-save mr-2"></i>Registrar Actividad
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+
     <!-- Modal: Detalle de Actividad -->
     <!-- Modal: Detalle de Actividad -->
     <div id="modalDetalle" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" onclick="cerrarModalClickAfuera(event)">
@@ -284,6 +460,209 @@
     </div>
 
     <script>
+
+        // Variables globales
+        let archivosSeleccionados = [];
+        let peritosData = []; // Almacenar datos completos de peritos
+
+        // Actividades por tipo de perito
+        const actividadesPorTipo = {
+            'Informático': [
+                'Diligencia de deslacrado',
+                'Diligencia de extracción',
+                'Diligencia de visualización',
+                'Diligencia de sustentación de pericia',
+                'Diligencia de Juramentación',
+                'Diligencias'
+            ],
+            'Contable': [
+                'Diligencia de Juramentación',
+                'Mesas de Trabajo',
+                'Diligencia de Juicio Oral',
+                'Diligencia de Diligencias',
+                'Diligencias'
+            ],
+            'Acústico': [
+                'Diligencia de Juramentación',
+                'Diligencia de Juicio Oral',
+                'Diligencias'
+            ],
+            'Antropólogo': [
+                'Diligencias de reconstrucción de los hechos',
+                'Estudio de restos óseos y análisis de traumatismos',
+                'Diligencia de Juicio Oral',
+                'Diligencia de Juramentación',
+                'Asesoramiento a los fiscales',
+                'Estimación de edad biologíca',
+                'Diligencias'
+            ]
+        };
+
+        // Apoyos técnicos por tipo de perito
+        const apoyosPorTipo = {
+            'Informático': [
+                'JORGE SALCEDO ROJAS',
+                'HENRRY JHON ANDIA CANCHI',
+                'MARCO ASTOPILCO MALAGA'
+            ],
+            'Contable': [
+                'NEYRA AYBAR ELTON RUBEN',
+                'NATALI MERCEDES RODRIGUEZ SAAVEDRA',
+                'GINO ARTURO BERROSPI AQUINO',
+                'LUIS ANGEL RODRIGUEZ BRIONES'
+            ],
+            'Acústico': [
+                'CESAR TIRADO TELLO',
+                'MANUEL CHRISTIAN FAJARDO TAMAYO',
+                'JOSE ARMANDO ARANGO PONTE'
+            ],
+            'Antropólogo': [
+                'RICHAR APAZA VILCA',
+                'LOURDES EDITH MOZO CASTILLO',
+                'JENNY SHIRLEY VEGUSTTI CHAMA',
+                'ULDA ORIUNDO CUADROS'
+            ]
+        };
+
+        // Abrir modal
+        function abrirModal() {
+            document.getElementById('modalActividad').classList.remove('hidden');
+            cargarPeritos();
+        }
+
+        // Cerrar modal
+        function cerrarModal() {
+            document.getElementById('modalActividad').classList.add('hidden');
+            document.getElementById('formActividad').reset();
+            archivosSeleccionados = [];
+            document.getElementById('listaArchivos').innerHTML = '';
+        }
+
+        // Cerrar modal al hacer clic fuera
+        function cerrarModalClickAfuera(event, modalId) {
+            if (event.target.id === modalId) {
+                cerrarModal();
+            }
+        }
+
+        // Cargar lista de peritos
+        function cargarPeritos() {
+            fetch('/api/peritos')
+                .then(response => response.json())
+                .then(peritos => {
+                    peritosData = peritos;
+                    const select = document.getElementById('perito_id');
+                    select.innerHTML = '<option value="">Seleccione un perito...</option>';
+                    
+                    peritos.forEach(p => {
+                        const option = document.createElement('option');
+                        option.value = p.id;
+                        option.textContent = p.nombre_completo || p.nombre;
+                        option.setAttribute('data-tipo', p.tipo);
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error al cargar peritos:', error));
+        }
+
+        // Cargar actividades y apoyos según el perito seleccionado
+        function cargarActividadesYApoyos() {
+            const select = document.getElementById('perito_id');
+            const selectedOption = select.options[select.selectedIndex];
+            const tipoPerito = selectedOption.getAttribute('data-tipo');
+            
+            // Mostrar tipo de perito
+            document.getElementById('tipo_perito_mostrar').value = tipoPerito || '';
+            
+            if (!tipoPerito) return;
+            
+            // Cargar actividades
+            const selectActividades = document.getElementById('tipo_actividad');
+            const actividades = actividadesPorTipo[tipoPerito] || [];
+            selectActividades.innerHTML = '<option value="">Seleccione una actividad</option>';
+            actividades.forEach(act => {
+                selectActividades.innerHTML += `<option value="${act}">${act}</option>`;
+            });
+            
+            // Cargar apoyos técnicos
+            const selectApoyos = document.getElementById('apoyo_tecnico');
+            const apoyos = apoyosPorTipo[tipoPerito] || [];
+            selectApoyos.innerHTML = '<option value="">Sin apoyo técnico</option>';
+            apoyos.forEach(apoyo => {
+                selectApoyos.innerHTML += `<option value="${apoyo}">${apoyo}</option>`;
+            });
+        }
+
+        // Manejar archivos
+        document.getElementById('archivos')?.addEventListener('change', function(e) {
+            const archivos = Array.from(e.target.files);
+            archivosSeleccionados = archivosSeleccionados.concat(archivos);
+            mostrarArchivos();
+        });
+
+        function mostrarArchivos() {
+            const lista = document.getElementById('listaArchivos');
+            lista.innerHTML = '';
+            
+            archivosSeleccionados.forEach((archivo, index) => {
+                lista.innerHTML += `
+                    <div class="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
+                        <span class="text-sm text-gray-700">
+                            <i class="fas fa-file-alt mr-2 text-blue-600"></i>${archivo.name}
+                        </span>
+                        <button type="button" onclick="eliminarArchivo(${index})"
+                                class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        function eliminarArchivo(index) {
+            archivosSeleccionados.splice(index, 1);
+            mostrarArchivos();
+        }
+
+        // Enviar formulario
+        document.getElementById('formActividad').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const data = {
+                perito_id: document.getElementById('perito_id').value,
+                dependencia: document.getElementById('dependencia').value,
+                carpeta_fiscal: document.getElementById('carpeta_fiscal').value,
+                denominacion: document.getElementById('denominacion').value,
+                tipo_actividad: document.getElementById('tipo_actividad').value,
+                apoyo_tecnico: document.getElementById('apoyo_tecnico').value,
+                observaciones: document.getElementById('observaciones').value,
+                fecha_inicio: document.getElementById('fecha_inicio').value,
+                fecha_fin: document.getElementById('fecha_fin').value,
+                hora_inicio: document.getElementById('hora_inicio').value,
+                hora_fin: document.getElementById('hora_fin').value
+            };
+            
+            fetch('/api/actividad', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('✅ Actividad registrada correctamente');
+                    cerrarModal();
+                    location.reload();
+                } else {
+                    alert('❌ Error: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error al guardar la actividad');
+            });
+        });
+
         const todasActividades = {{ actividades|tojson }};
 
         // Cargar peritos en el filtro
