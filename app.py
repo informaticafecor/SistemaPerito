@@ -2668,7 +2668,7 @@ def descargar_archivo(filename):
 # PARA ADNINB AACTIVIDADES
 
 @app.route('/actividades-admin')
-@invitado_allowed  # ← NUEVO: permite admin e invitado
+@invitado_allowed
 def actividades_admin():
     """
     Página para que admin e invitado vean todas las actividades de peritos
@@ -2693,16 +2693,23 @@ def actividades_admin():
     hoy = date.today()
     
     for row in cursor.fetchall():
-        fecha_inicio = datetime.strptime(row['fecha_inicio'], '%Y-%m-%d').date()
-        fecha_fin = datetime.strptime(row['fecha_fin'], '%Y-%m-%d').date()
+        # USAR EL ESTADO DE LA BASE DE DATOS SI EXISTE
+        estado_bd = row['estado'] if 'estado' in row.keys() and row['estado'] else None
         
-        # Calcular estado automático
-        if hoy < fecha_inicio:
-            estado_auto = 'Pendiente'
-        elif fecha_inicio <= hoy <= fecha_fin:
-            estado_auto = 'En Proceso'
+        # Si NO hay estado en BD o está vacío, calcular automáticamente
+        if not estado_bd:
+            fecha_inicio = datetime.strptime(row['fecha_inicio'], '%Y-%m-%d').date()
+            fecha_fin = datetime.strptime(row['fecha_fin'], '%Y-%m-%d').date()
+            
+            if hoy < fecha_inicio:
+                estado_final = 'Pendiente'
+            elif fecha_inicio <= hoy <= fecha_fin:
+                estado_final = 'En Proceso'
+            else:
+                estado_final = 'Completado'
         else:
-            estado_auto = 'Completado'
+            # USAR EL ESTADO MANUAL DE LA BD
+            estado_final = estado_bd
         
         actividades.append({
             'id': row['id'],
@@ -2716,7 +2723,7 @@ def actividades_admin():
             'fecha_fin': row['fecha_fin'],
             'hora_inicio': row['hora_inicio'],
             'hora_fin': row['hora_fin'],
-            'estado': estado_auto
+            'estado': estado_final  # ← AHORA USA EL ESTADO CORRECTO
         })
     
     conn.close()
@@ -2759,16 +2766,24 @@ def mis_actividades():
     hoy = date.today()
     
     for row in cursor.fetchall():
-        fecha_inicio = datetime.strptime(row['fecha_inicio'], '%Y-%m-%d').date()
-        fecha_fin = datetime.strptime(row['fecha_fin'], '%Y-%m-%d').date()
+        # ⬇️ PRIORIZAR ESTADO MANUAL DE LA BD ⬇️
+        estado_bd = row['estado'] if 'estado' in row.keys() and row['estado'] else None
         
-        # Calcular estado automático
-        if hoy < fecha_inicio:
-            estado_auto = 'Pendiente'
-        elif fecha_inicio <= hoy <= fecha_fin:
-            estado_auto = 'En Proceso'
-        else:  # hoy > fecha_fin
-            estado_auto = 'Completado'
+        # Si NO hay estado en BD, calcular automáticamente según fechas
+        if not estado_bd:
+            fecha_inicio = datetime.strptime(row['fecha_inicio'], '%Y-%m-%d').date()
+            fecha_fin = datetime.strptime(row['fecha_fin'], '%Y-%m-%d').date()
+            
+            if hoy < fecha_inicio:
+                estado_final = 'Pendiente'
+            elif fecha_inicio <= hoy <= fecha_fin:
+                estado_final = 'En Proceso'
+            else:  # hoy > fecha_fin
+                estado_final = 'Completado'
+        else:
+            # USAR EL ESTADO GUARDADO EN LA BD (manual)
+            estado_final = estado_bd
+        # ⬆️ FIN DE LÓGICA DE ESTADO ⬆️
         
         actividades.append({
             'id': row['id'],
@@ -2783,7 +2798,7 @@ def mis_actividades():
             'hora_inicio': row['hora_inicio'],
             'hora_fin': row['hora_fin'],
             'fecha_registro': row['fecha_registro'],
-            'estado': estado_auto  # Estado calculado automáticamente
+            'estado': estado_final  # ← AHORA USA EL ESTADO CORRECTO
         })
     
     conn.close()
@@ -2792,8 +2807,6 @@ def mis_actividades():
                           perito_nombre=perito['nombre_completo'],
                           tipo_perito=perito['tipo'],
                           actividades=actividades)
-
-
 
 @app.route('/api/actividad', methods=['POST'])
 @login_required

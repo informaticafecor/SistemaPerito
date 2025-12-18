@@ -828,17 +828,70 @@
         }
 
         function cambiarEstadoActividad(id) {
-            const estadoActual = prompt('Ingresa el nuevo estado:\n1. Pendiente\n2. En Proceso\n3. Completado');
-            
-            let nuevoEstado;
-            if (estadoActual === '1') nuevoEstado = 'Pendiente';
-            else if (estadoActual === '2') nuevoEstado = 'En Proceso';
-            else if (estadoActual === '3') nuevoEstado = 'Completado';
-            else {
-                alert('❌ Opción inválida');
-                return;
-            }
-            
+            // Obtener estado actual
+            fetch(`/api/actividad/${id}`)
+                .then(response => response.json())
+                .then(actividad => {
+                    const estadoActual = actividad.estado || 'Pendiente';
+                    
+                    // Crear modal elegante
+                    const modalHTML = `
+                        <div id="modalCambiarEstadoAdmin" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                                <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4">
+                                    <h3 class="text-xl font-bold text-white">
+                                        <i class="fas fa-sync-alt mr-2"></i>Cambiar Estado de Actividad
+                                    </h3>
+                                </div>
+                                <div class="p-6">
+                                    <div class="mb-4 p-3 bg-blue-50 rounded-lg">
+                                        <p class="text-sm text-gray-600">Actividad ID: <strong>#${id}</strong></p>
+                                        <p class="text-sm text-gray-600">Estado actual: <strong class="text-blue-600">${estadoActual}</strong></p>
+                                    </div>
+                                    <p class="text-gray-700 mb-4">Seleccione el nuevo estado:</p>
+                                    <div class="space-y-3">
+                                        <button onclick="confirmarCambioEstadoAdmin(${id}, 'Pendiente')" 
+                                                class="w-full px-4 py-3 text-left rounded-lg border-2 ${estadoActual === 'Pendiente' ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-300'} transition">
+                                            <i class="fas fa-clock mr-2 text-blue-600"></i>
+                                            <span class="font-semibold">Pendiente</span>
+                                            ${estadoActual === 'Pendiente' ? '<span class="text-xs text-blue-600 ml-2">(Actual)</span>' : ''}
+                                        </button>
+                                        <button onclick="confirmarCambioEstadoAdmin(${id}, 'En Proceso')" 
+                                                class="w-full px-4 py-3 text-left rounded-lg border-2 ${estadoActual === 'En Proceso' ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300 hover:border-yellow-300'} transition">
+                                            <i class="fas fa-spinner mr-2 text-yellow-600"></i>
+                                            <span class="font-semibold">En Proceso</span>
+                                            ${estadoActual === 'En Proceso' ? '<span class="text-xs text-yellow-600 ml-2">(Actual)</span>' : ''}
+                                        </button>
+                                        <button onclick="confirmarCambioEstadoAdmin(${id}, 'Completado')" 
+                                                class="w-full px-4 py-3 text-left rounded-lg border-2 ${estadoActual === 'Completado' ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-green-300'} transition">
+                                            <i class="fas fa-check-circle mr-2 text-green-600"></i>
+                                            <span class="font-semibold">Completado</span>
+                                            ${estadoActual === 'Completado' ? '<span class="text-xs text-green-600 ml-2">(Actual)</span>' : ''}
+                                        </button>
+                                    </div>
+                                    <div class="mt-6 flex justify-end">
+                                        <button onclick="cerrarModalCambiarEstadoAdmin()" 
+                                                class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                                            <i class="fas fa-times mr-2"></i>Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Agregar modal al DOM
+                    const modalDiv = document.createElement('div');
+                    modalDiv.innerHTML = modalHTML;
+                    document.body.appendChild(modalDiv);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al cargar información de la actividad');
+                });
+        }
+
+        function confirmarCambioEstadoAdmin(id, nuevoEstado) {
             fetch(`/api/actividad/${id}/cambiar-estado`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -847,14 +900,34 @@
             .then(response => response.json())
             .then(result => {
                 if (result.success) {
-                    alert('✅ Estado actualizado');
+                    alert(`✅ Estado actualizado correctamente a: ${nuevoEstado}`);
+                    cerrarModalCambiarEstadoAdmin();
                     location.reload();
                 } else {
                     alert('❌ Error: ' + result.error);
                 }
             })
-            .catch(error => alert('❌ Error al cambiar estado'));
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error al cambiar el estado');
+            });
         }
+
+        function cerrarModalCambiarEstadoAdmin() {
+            const modal = document.getElementById('modalCambiarEstadoAdmin');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+
+
+
+
+
+
+
+
 
 
         function cerrarModalDetalle() {
