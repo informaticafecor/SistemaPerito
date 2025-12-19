@@ -85,7 +85,7 @@
                 <!-- Menú de navegación - CENTRO FLEXIBLE -->
                 <div class="flex items-center space-x-1 flex-grow justify-center">
                     {% if session.rol == 'admin' or session.rol == 'perito' %}
-                    
+
                     <a href="/" class="px-3 py-2 bg-blue-800 rounded-lg hover:bg-blue-700 transition text-sm">
                         <i class="fas fa-home mr-1"></i>Dashboard
                     </a>
@@ -996,7 +996,7 @@
                             </div>
                             
                             <div class="col-span-2">
-                                <label class="text-sm font-semibold text-gray-600">Denominación:</label>
+                                <label class="text-sm font-semibold text-gray-600">Denominación del caso:</label>
                                 <p class="text-gray-800">${data.denominacion || '-'}</p>
                             </div>      
 
@@ -1146,7 +1146,7 @@
                             
                             ${data.denominacion ? `
                                 <div class="col-span-2">
-                                    <label class="text-sm font-semibold text-gray-600">Denominación:</label>
+                                    <label class="text-sm font-semibold text-gray-600">Denominación del caso:</label>
                                     <p class="text-gray-800">${data.denominacion}</p>
                                 </div>
                             ` : ''}

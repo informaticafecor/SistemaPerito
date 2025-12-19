@@ -2807,6 +2807,7 @@ def mis_actividades():
                           perito_nombre=perito['nombre_completo'],
                           tipo_perito=perito['tipo'],
                           actividades=actividades)
+                          
 
 @app.route('/api/actividad', methods=['POST'])
 @login_required
@@ -2814,6 +2815,8 @@ def crear_actividad():
     """
     Crear nueva actividad de perito (perito o admin)
     """
+    from datetime import datetime, date  # ← AGREGAR ESTO
+    
     data = request.json
     
     # Si es admin, debe enviar perito_id
@@ -2830,6 +2833,23 @@ def crear_actividad():
     # Validaciones
     if not data.get('tipo_actividad') or not data.get('fecha_inicio') or not data.get('fecha_fin'):
         return jsonify({'success': False, 'error': 'Faltan campos requeridos'}), 400
+    
+    # ⬇️ CALCULAR ESTADO INICIAL AUTOMÁTICAMENTE ⬇️
+    try:
+        fecha_inicio = datetime.strptime(data['fecha_inicio'], '%Y-%m-%d').date()
+        fecha_fin = datetime.strptime(data['fecha_fin'], '%Y-%m-%d').date()
+        hoy = date.today()
+        
+        # Calcular estado según fechas
+        if hoy < fecha_inicio:
+            estado_inicial = 'Pendiente'
+        elif fecha_inicio <= hoy <= fecha_fin:
+            estado_inicial = 'En Proceso'
+        else:  # hoy > fecha_fin (fecha pasada)
+            estado_inicial = 'Completado'
+    except:
+        estado_inicial = 'Pendiente'  # Por defecto si hay error
+    # ⬆️ FIN CÁLCULO ⬆️
     
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -2849,8 +2869,8 @@ def crear_actividad():
             INSERT INTO actividades_peritos (
                 perito_id, tipo_perito, dependencia, carpeta_fiscal, denominacion,
                 tipo_actividad, apoyo_tecnico, observaciones,
-                fecha_inicio, fecha_fin, hora_inicio, hora_fin
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                fecha_inicio, fecha_fin, hora_inicio, hora_fin, estado
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             perito_id,
             tipo_perito,
@@ -2863,7 +2883,8 @@ def crear_actividad():
             data['fecha_inicio'],
             data['fecha_fin'],
             data.get('hora_inicio', ''),
-            data.get('hora_fin', '')
+            data.get('hora_fin', ''),
+            estado_inicial  # ← AGREGAR EL ESTADO CALCULADO
         ))
         
         actividad_id = cursor.lastrowid
@@ -2876,7 +2897,7 @@ def crear_actividad():
             session.get('nombre_completo'),
             'CREAR_ACTIVIDAD',
             'ACTIVIDADES',
-            f"Actividad '{data['tipo_actividad']}' registrada para perito ID {perito_id}",
+            f"Actividad '{data['tipo_actividad']}' registrada para perito ID {perito_id} con estado inicial '{estado_inicial}'",
             actividad_id
         )
         
