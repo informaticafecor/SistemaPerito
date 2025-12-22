@@ -1399,13 +1399,6 @@ def buscar():
 
 
 
-#@app.route('/calendario')
-#@login_required  # ← AGREGAR
-#def calendario():
-#    """
-#    Vista de calendario con asignaciones
-#    """
-#    return render_template('core/calendario.html')
 
 @app.route('/calendario')
 @invitado_allowed  # ← CAMBIAR
@@ -1560,8 +1553,7 @@ def get_asignaciones():
             'perito_nombre': row['nombre_completo']
         })
     
-
-    
+    # ==================== OBTENER VACACIONES ====================
     # ==================== OBTENER VACACIONES ====================
     query_vac = '''
         SELECT v.*, p.nombre_completo
@@ -1570,25 +1562,35 @@ def get_asignaciones():
         WHERE 1=1
     '''
     params_vac = []
-    
-    
+
     # Filtro por rol (perito solo ve las suyas)
     if not es_admin and not es_invitado and perito_id:
         query_vac += ' AND v.perito_id = ?'
         params_vac.append(perito_id)
-    
+
     # Filtro por perito (para admin)
     if request.args.get('perito_id') and (es_admin or es_invitado):
         query_vac += ' AND v.perito_id = ?'
         params_vac.append(request.args.get('perito_id'))
-    
-    # Filtro por rango de fechas
-    if request.args.get('fecha_desde'):
-        query_vac += ' AND v.fecha_inicio >= ?'
+
+    # ⬇️ DEBE TENER ESTE CÓDIGO ⬇️
+    # Filtro por rango de fechas - CORREGIDO para incluir vacaciones que cruzan meses
+    if request.args.get('fecha_desde') and request.args.get('fecha_hasta'):
+        fecha_desde = request.args.get('fecha_desde')
+        fecha_hasta = request.args.get('fecha_hasta')
+        
+        query_vac += ''' AND (
+            (v.fecha_inicio <= ? AND v.fecha_fin >= ?) OR
+            (v.fecha_inicio >= ? AND v.fecha_inicio <= ?) OR
+            (v.fecha_fin >= ? AND v.fecha_fin <= ?) OR
+            (v.fecha_inicio <= ? AND v.fecha_fin >= ?)
+        )'''
+        params_vac.extend([fecha_hasta, fecha_desde, fecha_desde, fecha_hasta, fecha_desde, fecha_hasta, fecha_desde, fecha_hasta])
+    elif request.args.get('fecha_desde'):
+        query_vac += ' AND v.fecha_fin >= ?'
         params_vac.append(request.args.get('fecha_desde'))
-    
-    if request.args.get('fecha_hasta'):
-        query_vac += ' AND v.fecha_fin <= ?'
+    elif request.args.get('fecha_hasta'):
+        query_vac += ' AND v.fecha_inicio <= ?'
         params_vac.append(request.args.get('fecha_hasta'))
     
     query_vac += ' ORDER BY v.fecha_inicio DESC'
@@ -1639,7 +1641,10 @@ def get_asignaciones():
         query_act += ' AND a.fecha_fin <= ?'
         params_act.append(request.args.get('fecha_hasta'))
     
+
+    
     query_act += ' ORDER BY a.fecha_inicio DESC'
+
     
     cursor.execute(query_act, params_act)
     
@@ -2807,7 +2812,7 @@ def mis_actividades():
                           perito_nombre=perito['nombre_completo'],
                           tipo_perito=perito['tipo'],
                           actividades=actividades)
-                          
+
 
 @app.route('/api/actividad', methods=['POST'])
 @login_required
@@ -3357,27 +3362,41 @@ def vacaciones():
                          pendientes=pendientes)
 
 @app.route('/api/vacacion', methods=['POST'])
-@login_required  # ← AGREGAR
+@login_required
 def crear_vacacion():
     """
-    Registrar nuevo período de vacaciones
+    Registrar nuevo período de vacaciones (admin o perito)
     """
     data = request.json
     
-    #PARA QUE NO SEA OLBITARIO LA FECHA
-    # Validar datos requeridos
-    #if not all(k in data for k in ('perito_id', 'fecha_inicio', 'fecha_fin')):
-    #    return jsonify({'error': 'Faltan datos requeridos'}), 400
+    # Si es PERITO, usar su propio perito_id
+    # Si es ADMIN, debe enviar perito_id
+    if session.get('rol') == 'perito':
+        perito_id = session.get('perito_id')
+        if not perito_id:
+            return jsonify({'error': 'Perito no identificado'}), 400
+    elif session.get('rol') == 'admin':
+        perito_id = data.get('perito_id')
+        if not perito_id:
+            return jsonify({'error': 'Debe seleccionar un perito'}), 400
+    else:
+        return jsonify({'error': 'No autorizado'}), 403
     
-    if not data.get('perito_id'):
-        return jsonify({'error': 'Faltan datos requeridos'}), 400
-
+    # Validar fechas
+    if not data.get('fecha_inicio') or not data.get('fecha_fin'):
+        return jsonify({'error': 'Faltan fechas requeridas'}), 400
     
     # Calcular días totales
     from datetime import datetime
-    fecha_inicio = datetime.strptime(data['fecha_inicio'], '%Y-%m-%d')
-    fecha_fin = datetime.strptime(data['fecha_fin'], '%Y-%m-%d')
-    dias_totales = (fecha_fin - fecha_inicio).days + 1
+    try:
+        fecha_inicio = datetime.strptime(data['fecha_inicio'], '%Y-%m-%d')
+        fecha_fin = datetime.strptime(data['fecha_fin'], '%Y-%m-%d')
+        dias_totales = (fecha_fin - fecha_inicio).days + 1
+        
+        if dias_totales <= 0:
+            return jsonify({'error': 'La fecha de fin debe ser posterior a la fecha de inicio'}), 400
+    except:
+        return jsonify({'error': 'Formato de fecha inválido'}), 400
     
     # Verificar si el perito ya tiene vacaciones en esas fechas
     conn = sqlite3.connect('database.db')
@@ -3391,7 +3410,7 @@ def crear_vacacion():
             (fecha_inicio <= ? AND fecha_fin >= ?) OR
             (fecha_inicio >= ? AND fecha_fin <= ?)
         )
-    ''', (data['perito_id'], data['fecha_fin'], data['fecha_inicio'],
+    ''', (perito_id, data['fecha_fin'], data['fecha_inicio'],
           data['fecha_fin'], data['fecha_fin'], data['fecha_inicio'], data['fecha_fin']))
     
     conflictos = cursor.fetchall()
@@ -3403,6 +3422,11 @@ def crear_vacacion():
             'conflictos': conflictos
         }), 409
     
+    # Obtener tipo de perito
+    cursor.execute('SELECT tipo FROM peritos WHERE id = ?', (perito_id,))
+    result = cursor.fetchone()
+    tipo_perito = result[0] if result else ''
+    
     # Insertar vacaciones
     cursor.execute('''
         INSERT INTO vacaciones (
@@ -3410,13 +3434,13 @@ def crear_vacacion():
             dias_totales, tipo_vacaciones, estado, observaciones
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
-        data['perito_id'],
-        data.get('tipo_perito', ''),
+        perito_id,
+        tipo_perito,
         data['fecha_inicio'],
         data['fecha_fin'],
         dias_totales,
-        data.get('tipo_vacaciones', 'Programadas'),
-        data.get('estado', 'Aprobadas'),
+        data.get('tipo_vacaciones', 'Vacaciones'),
+        data.get('estado', 'Aprobado'),
         data.get('observaciones', '')
     ))
     
@@ -3424,13 +3448,13 @@ def crear_vacacion():
     conn.commit()
     conn.close()
 
-    # ... al final, después del commit ...
+    # Registrar auditoría
     registrar_auditoria(
         session['usuario_id'],
         session.get('nombre_completo'),
         'CREAR_VACACION',
         'VACACIONES',
-        f"Vacación registrada para perito ID {data['perito_id']}",
+        f"Vacación registrada para perito ID {perito_id}: {data['fecha_inicio']} a {data['fecha_fin']}",
         vacacion_id
     )       
     
@@ -3477,17 +3501,32 @@ def get_vacacion(id):
         return jsonify({'error': 'Vacaciones no encontradas'}), 404
 
 @app.route('/api/vacacion/<int:id>', methods=['DELETE'])
+@login_required
 def eliminar_vacacion(id):
     """
-    Eliminar registro de vacaciones
+    Eliminar registro de vacaciones (admin o perito dueño)
     """
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     
+    # Verificar que existe y obtener perito_id
+    cursor.execute('SELECT perito_id FROM vacaciones WHERE id = ?', (id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Vacaciones no encontradas'}), 404
+    
+    # Verificar permisos: admin o el propio perito
+    if session.get('rol') != 'admin' and result[0] != session.get('perito_id'):
+        conn.close()
+        return jsonify({'success': False, 'error': 'No autorizado'}), 403
+    
     cursor.execute('DELETE FROM vacaciones WHERE id = ?', (id,))
     conn.commit()
     conn.close()
-    # ... después del DELETE ...
+    
+    # Registrar auditoría
     registrar_auditoria(
         session['usuario_id'],
         session.get('nombre_completo'),
@@ -3496,12 +3535,49 @@ def eliminar_vacacion(id):
         f"Vacación ID {id} eliminada",
         id
     )
-
     
     return jsonify({
         'success': True,
         'message': 'Vacaciones eliminadas correctamente'
     })
+
+@app.route('/mis-vacaciones')
+@login_required
+def mis_vacaciones():
+    """
+    Página para que peritos gestionen sus vacaciones
+    """
+    if session.get('rol') != 'perito':
+        return redirect(url_for('index'))
+    
+    perito_id = session.get('perito_id')
+    
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Info del perito
+    cursor.execute('SELECT nombre_completo, tipo FROM peritos WHERE id = ?', (perito_id,))
+    perito = cursor.fetchone()
+    
+    if not perito:
+        flash('Perito no encontrado', 'error')
+        return redirect(url_for('index'))
+    
+    # Vacaciones del perito
+    cursor.execute('''
+        SELECT * FROM vacaciones
+        WHERE perito_id = ?
+        ORDER BY fecha_inicio DESC
+    ''', (perito_id,))
+    
+    vacaciones = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    return render_template('core/mis_vacaciones.html',
+                          perito_nombre=perito['nombre_completo'],
+                          tipo_perito=perito['tipo'],
+                          vacaciones=vacaciones)    
 
 @app.route('/api/asignacion/<int:id>/imprimir-pdf')
 @login_required
