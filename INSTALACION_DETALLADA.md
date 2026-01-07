@@ -2,7 +2,12 @@
 
 Esta guía cubre la instalación paso a paso con capturas y solución de problemas.
 
----
+--- ANTES DE ENVIAR UN GIT PULL HHACER ESTO
+
+ git reset --hard HEAD
+ git pull
+--------------------------
+
 
 ## 📋 Tabla de Contenidos
 
