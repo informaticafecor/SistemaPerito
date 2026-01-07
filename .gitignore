@@ -1,4 +1,19 @@
-database.db
+# Entorno virtual
+venv/
+.env/
+
+# Python
+__pycache__/
+*.pyc
+
+# Base de datos
+*.db
 *.sqlite
 *.sqlite3
-*.db
+
+# Archivos subidos
+uploads/
+
+# VS Code / Windows
+.vscode/
+*.log
