@@ -46,7 +46,7 @@ app.config['JSON_AS_ASCII'] = False  # Para caracteres especiales en español
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB máximo por archivo
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 16 MB máximo por archivo
 
 # Crear carpeta si no existe
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -61,7 +61,7 @@ def allowed_file(filename):
 # Configuración de sesiones
 app.secret_key = 'tu_clave_secreta_muy_segura_2025'  # Cambiar en producción
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['PERMANENT_SESSION_LIFETIME'] = 28800  # 8 horas en segundos
+app.config['PERMANENT_SESSION_LIFETIME'] = 1800  # AHORITA ESTA 30 MINUTOS ---8 horas en segundos 28800 ES 8 HORS 
 
 # ============================================================================
 # CONFIGURACIÓN DE BASE DE DATOS
